@@ -27,9 +27,9 @@ if (EMAIL_USER && EMAIL_PASS) {
  * @param toEmail O email do destinatário.
  * @param token O token de redefinição não hasheado.
  */
-export const sendPasswordResetEmail = async (toEmail, token) => {
+export const sendPasswordResetEmail = async (toEmail, token, transport = transporter) => {
     // Se não houver credenciais de email configuradas, apenas registrar no console (desenvolvimento)
-    if (!transporter) {
+    if (!transport) {
         console.log(`[DESENVOLVIMENTO] Email de redefinição de senha para ${toEmail}`);
         console.log(`Token de redefinição: ${token}`);
         console.log(`Link: ${FRONTEND_URL}/reset?token=${token}`);
@@ -39,7 +39,7 @@ export const sendPasswordResetEmail = async (toEmail, token) => {
     const resetLink = `${FRONTEND_URL}/reset?token=${token}`;
     const supportEmail = ADMIN_CONTACT_EMAIL;
 
-    await transporter.sendMail({
+    await transport.sendMail({
         from: `"NotasMax" <${EMAIL_USER}>`,
         to: toEmail,
         subject: "Redefinição de Senha Solicitada",
@@ -328,8 +328,8 @@ export const sendPasswordResetEmail = async (toEmail, token) => {
  * @param toEmail O email do destinatario.
  * @param token O token de redefinicao nao hasheado.
  */
-export const sendPasswordResetEmailMobile = async (toEmail, token) => {
-    if (!transporter) {
+export const sendPasswordResetEmailMobile = async (toEmail, token, transport = transporter) => {
+    if (!transport) {
         console.log(`[DESENVOLVIMENTO] Email de redefinicao mobile para ${toEmail}`);
         console.log(`Codigo de redefinicao (mobile): ${token}`);
         return;
@@ -337,7 +337,7 @@ export const sendPasswordResetEmailMobile = async (toEmail, token) => {
 
     const supportEmail = ADMIN_CONTACT_EMAIL;
 
-    await transporter.sendMail({
+    await transport.sendMail({
         from: `"NotasMax" <${EMAIL_USER}>`,
         to: toEmail,
         subject: "Redefinição de Senha Solicitada (Mobile)",

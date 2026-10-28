@@ -1,14 +1,14 @@
-import mongoose from "./conn.js";
 import Simulado from "../Models/Simulado.js";
 import Turma from "../Models/Turma.js";
+import { pathToFileURL } from "node:url";
 
 const notaMaxima = 10;
 
-const gerarResultados = (alunosIdArray, quantidade_questoes) => {
+export const gerarResultados = (alunosIdArray, quantidade_questoes) => {
     return alunosIdArray.map(alunoId => gerarResultadoParaAluno(alunoId, quantidade_questoes));
 };
 
-const gerarResultadoParaAluno = (alunoId, quantidade_questoes) => {
+export const gerarResultadoParaAluno = (alunoId, quantidade_questoes) => {
     const minAcertos = Math.max(1, Math.floor(quantidade_questoes * 0.3));
     const maxAcertos = quantidade_questoes;
     const acertos = Math.floor(Math.random() * (maxAcertos - minAcertos + 1)) + minAcertos;
@@ -21,13 +21,18 @@ const gerarResultadoParaAluno = (alunoId, quantidade_questoes) => {
     };
 };
 
-const populate = async () => {
+export const populate = async ({
+    SimuladoModel = Simulado,
+    TurmaModel = Turma,
+    logger = console,
+    exit = process.exit,
+} = {}) => {
     try {
-        console.log("🌱 Populando simulados cuja data_realizacao é menor que agora...");
+        logger.log("🌱 Populando simulados cuja data_realizacao é menor que agora...");
         const agora = new Date();
 
-        const simulados = await Simulado.find({ data_realizacao: { $lt: agora } });
-        console.log(`Encontrados ${simulados.length} simulados no passado (antes de ${agora.toISOString()})`);
+        const simulados = await SimuladoModel.find({ data_realizacao: { $lt: agora } });
+        logger.log(`Encontrados ${simulados.length} simulados no passado (antes de ${agora.toISOString()})`);
 
         let updatedCount = 0;
 
@@ -35,7 +40,7 @@ const populate = async () => {
             let precisaSalvar = false;
 
             // buscar alunos da turma associada
-            const turma = await Turma.findById(sim.turma_id);
+            const turma = await TurmaModel.findById(sim.turma_id);
             const alunos = turma && turma.alunos ? turma.alunos.map(a => a.toString()) : [];
 
             for (let idx = 0; idx < sim.conteudos.length; idx++) {
@@ -57,16 +62,19 @@ const populate = async () => {
             if (precisaSalvar) {
                 await sim.save();
                 updatedCount++;
-                console.log(`✓ Simulado ${sim._id} atualizado com resultados faltantes`);
+                logger.log(`✓ Simulado ${sim._id} atualizado com resultados faltantes`);
             }
         }
 
-        console.log(`✅ Finalizado. Simulados atualizados: ${updatedCount}`);
-        process.exit(0);
+        logger.log(`✅ Finalizado. Simulados atualizados: ${updatedCount}`);
+        exit(0);
     } catch (error) {
-        console.error("❌ Erro populando simulados:", error);
-        process.exit(1);
+        logger.error("❌ Erro populando simulados:", error);
+        exit(1);
     }
 };
 
-populate();
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+    await import("./conn.js");
+    await populate();
+}
