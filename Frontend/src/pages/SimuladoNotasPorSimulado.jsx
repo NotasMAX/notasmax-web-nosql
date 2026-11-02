@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { getByAlunoAndBimestre } from "../api/simuladoApi.js";
+import { getByAlunoAndBimestre, getOneSimple } from "../api/simuladoApi.js";
 import { getUsuario } from "../api/usuariosapi.js";
 import { useParams, useNavigate } from "react-router-dom";
 import NotasCard from "../components/NotasCard";
@@ -59,7 +59,7 @@ export default function SimuladoNotasPorSimulado({}) {
     if (!simuladoAtual?.conteudos) return 0;
 
     return simuladoAtual.conteudos.reduce((total, conteudo) => {
-      return total + (conteudo.resultado.acertos || 0);
+      return total + (conteudo.resultado?.acertos || 0);
     }, 0);
   };
 
@@ -71,6 +71,16 @@ export default function SimuladoNotasPorSimulado({}) {
     return simuladoAtual.conteudos.reduce((total, conteudo) => {
       return total + (conteudo.quantidade_questoes || 0);
     }, 0);
+  };
+
+  // O aluno pode ainda não ter nota no bimestre: nesse caso a lista vem vazia, e a turma sai do simulado aberto.
+  const importarExcel = async () => {
+    try {
+      const res = await getOneSimple(simuladoIdParams);
+      navigate(`/Simulados/Importar/${res.data.simulado.turma_id}/${bimestre}/${alunoId}`);
+    } catch (e) {
+      setError(e.message || "Erro ao abrir a importação");
+    }
   };
 
   if (loading) return <p>Carregando...</p>;
@@ -91,7 +101,7 @@ export default function SimuladoNotasPorSimulado({}) {
 
         <div>
           <BimestreAtual
-            bimestre={simulados[0]?.bimestre}
+            bimestre={simulados[0]?.bimestre ?? bimestre}
             ano={simulados[0]?.turma.ano}
           />
         </div>
@@ -124,14 +134,17 @@ export default function SimuladoNotasPorSimulado({}) {
           </svg>
           Lançar Notas Simulado
         </button>
-        {/* <button className={ButtonStyle.buttonSecondarySmall}>
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path fillRule="evenodd" clipRule="evenodd" d="M4 6C4 3.79086 5.79086 2 8 2H16C18.2091 2 20 3.79086 20 6V18C20 20.2091 18.2091 22 16 22H8C5.79086 22 4 20.2091 4 18V6ZM8 4C6.89543 4 6 4.89543 6 6V18C6 19.1046 6.89543 20 8 20H16C17.1046 20 18 19.1046 18 18V6C18 4.89543 17.1046 4 16 4H8Z" fill="#4B5563" />
-                        <path fillRule="evenodd" clipRule="evenodd" d="M8 2H8.11111C9.35367 2 10.3977 2.84985 10.6938 4H13.3062C13.6023 2.84985 14.6463 2 15.8889 2H16V4H15.8889C15.5207 4 15.2222 4.29848 15.2222 4.66667C15.2222 5.40305 14.6253 6 13.8889 6H10.1111C9.37473 6 8.77778 5.40305 8.77778 4.66667C8.77778 4.29848 8.4793 4 8.11111 4H8V2Z" fill="#4B5563" />
-                        <path fillRule="evenodd" clipRule="evenodd" d="M12 9C12.5523 9 13 9.44772 13 10L13 13.5858L14.2929 12.2929C14.6834 11.9024 15.3166 11.9024 15.7071 12.2929C16.0976 12.6834 16.0976 13.3166 15.7071 13.7071L12.7071 16.7071C12.3166 17.0976 11.6834 17.0976 11.2929 16.7071L8.29289 13.7071C7.90237 13.3166 7.90237 12.6834 8.29289 12.2929C8.68342 11.9024 9.31658 11.9024 9.70711 12.2929L11 13.5858L11 10C11 9.44772 11.4477 9 12 9Z" fill="#4B5563" />
-                    </svg>
-                    Importar Notas Excel
-                </button> */}
+        <button
+          className={ButtonStyle.buttonSecondarySmall}
+          onClick={importarExcel}
+        >
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path fillRule="evenodd" clipRule="evenodd" d="M4 6C4 3.79086 5.79086 2 8 2H16C18.2091 2 20 3.79086 20 6V18C20 20.2091 18.2091 22 16 22H8C5.79086 22 4 20.2091 4 18V6ZM8 4C6.89543 4 6 4.89543 6 6V18C6 19.1046 6.89543 20 8 20H16C17.1046 20 18 19.1046 18 18V6C18 4.89543 17.1046 4 16 4H8Z" fill="#4B5563" />
+            <path fillRule="evenodd" clipRule="evenodd" d="M8 2H8.11111C9.35367 2 10.3977 2.84985 10.6938 4H13.3062C13.6023 2.84985 14.6463 2 15.8889 2H16V4H15.8889C15.5207 4 15.2222 4.29848 15.2222 4.66667C15.2222 5.40305 14.6253 6 13.8889 6H10.1111C9.37473 6 8.77778 5.40305 8.77778 4.66667C8.77778 4.29848 8.4793 4 8.11111 4H8V2Z" fill="#4B5563" />
+            <path fillRule="evenodd" clipRule="evenodd" d="M12 9C12.5523 9 13 9.44772 13 10L13 13.5858L14.2929 12.2929C14.6834 11.9024 15.3166 11.9024 15.7071 12.2929C16.0976 12.6834 16.0976 13.3166 15.7071 13.7071L12.7071 16.7071C12.3166 17.0976 11.6834 17.0976 11.2929 16.7071L8.29289 13.7071C7.90237 13.3166 7.90237 12.6834 8.29289 12.2929C8.68342 11.9024 9.31658 11.9024 9.70711 12.2929L11 13.5858L11 10C11 9.44772 11.4477 9 12 9Z" fill="#4B5563" />
+          </svg>
+          Importar Excel
+        </button>
         <button
           className={ButtonStyle.buttonSecondarySmall}
           onClick={() => navigate(`/Usuarios/Aluno/${alunoId}/desempenho`)}

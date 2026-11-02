@@ -11,5 +11,7 @@ export const updateSimulado = (id, payload) => api.patch(`/Simulado/Editar/${id}
 export const getSimuladosByTurma = (id) => api.get(`/Simulados/Turma/${id}`);
 export const atualizarConteudos = (id, payload) => api.patch(`/Simulado/AtualizarConteudos/${id}`, payload);
 export const getOneSimple = (id) => api.get(`/Simulado/Simple/${id}`);
+export const previaImportacaoNotas = (dados) => api.post('/Importacoes/Notas/Previa', dados, { headers: { 'Content-Type': 'multipart/form-data' } });
+export const confirmarImportacaoNotas = (payload) => api.post('/Importacoes/Notas/Confirmar', payload);
 
 export default api;

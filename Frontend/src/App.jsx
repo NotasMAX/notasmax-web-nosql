@@ -32,6 +32,8 @@ import TurmasAcertosPorMateria from "./pages/TurmasAcertosPorMateria";
 import NotFound from "./pages/NotFound";
 import SimuladosNotas from "./pages/SimuladosNotas";
 import SimuladosNotasIndividual from "./pages/SimuladosNotasIndividual";
+import ImportarNotas from "./pages/ImportarNotas";
+import ConfirmarImportacaoNotas from "./pages/ConfirmarImportacaoNotas";
 
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
@@ -174,6 +176,22 @@ function App() {
             <AdminRoute>
               <Layout>
                 <SimuladosNotas />
+              </Layout>
+            </AdminRoute>
+          } />
+
+          <Route path="/Simulados/Importar/:turma/:bimestre/:aluno" element={
+            <AdminRoute>
+              <Layout>
+                <ImportarNotas />
+              </Layout>
+            </AdminRoute>
+          } />
+
+          <Route path="/Simulados/Importar/:turma/:bimestre/:aluno/Confirmar" element={
+            <AdminRoute>
+              <Layout>
+                <ConfirmarImportacaoNotas />
               </Layout>
             </AdminRoute>
           } />

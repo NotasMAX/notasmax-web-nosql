@@ -5,6 +5,8 @@ import UsuariosController from "../Controllers/UsuariosController.js";
 import MateriasController from "../Controllers/MateriasController.js";
 import { authenticateToken, authorizeAdmin, authorizeProfessor } from "../middlewares/authMiddleware.js";
 import SimuladosController from '../Controllers/SimuladosController.js';
+import ImportacaoController from '../Controllers/ImportacaoController.js';
+import { receberPlanilha } from '../middlewares/uploadPlanilha.js';
 
 
 const routes = Router();
@@ -64,4 +66,7 @@ routes.get('/Simulados/ano=:ano/aluno=:aluno', SimuladosController.getSimuladosB
 routes.get('/Desempenho/aluno=:aluno/simulado=:simulado', SimuladosController.getDesempenhoAlunoBySimulado);
 routes.get('/Professor/:professor/data/anoAtual', SimuladosController.getProfessorDataCurrentYear);
 routes.get('/Calendario/aluno=:aluno', SimuladosController.getCalendarioByAluno);
+
+routes.post('/Importacoes/Notas/Previa', authenticateToken, authorizeAdmin, receberPlanilha, ImportacaoController.previa);
+routes.post('/Importacoes/Notas/Confirmar', authenticateToken, authorizeAdmin, ImportacaoController.confirmar);
 export default routes;
