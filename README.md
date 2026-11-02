@@ -13,3 +13,7 @@ O projeto foi desenvolvido no âmbito do curso Desenvolvimento de Software Multi
 - JavaScript;
 - HTML / CSS / React / Tailwind ;
 - Mongoose / Express / Cors
+
+## Documentação
+- [Importação de notas por Excel](docs/importacao-notas-excel.md): como funciona, regras, limites e como testar. Também em [Word](docs/importacao-notas-excel.docx);
+- [Planilhas de teste](docs/planilhas-teste/LEIA-ME.md): o que cada planilha testa e com qual aluno usar.

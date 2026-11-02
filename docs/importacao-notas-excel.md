@@ -43,6 +43,42 @@ flowchart LR
 
 Problema de estrutura ou de bimestre para no envio; os demais bloqueios ficam na revisão até serem corrigidos.
 
+## Como testar
+
+Dá para testar tudo com a seed e as planilhas de `docs/planilhas-teste`, que usam dados fictícios. A seed apaga os dados do banco `NotasMax` local, então não a rode em um banco que você queira manter.
+
+1. Rode `npm install` nas pastas `Backend` e `Frontend`.
+2. Suba um Mongo local na porta 27017. Com Docker: `docker run -d --name notasmax-mongo -p 127.0.0.1:27017:27017 -v notasmax-mongo-data:/data/db mongo:8`.
+3. Na pasta `Backend`, rode `node DB/seedImportacao.js`.
+4. Rode `npm start` no `Backend` e `npm run dev` no `Frontend`.
+5. Abra `http://localhost:5173` e entre com o login de admin da tabela abaixo.
+6. Vá em Turmas, abra a turma, clique no olho de um simulado do bimestre da planilha, clique em **Importar Excel** e escolha o aluno.
+7. Envie a planilha, confira a revisão e clique em **Confirmar**.
+
+| Perfil | E-mail | Senha |
+| --- | --- | --- |
+| Admin, o único que importa | `admin@notasmax.test` | `admin123` |
+| Professor | `lourdes.prado@notasmax.test` | `admin123` |
+| Aluno | `lucas.santos@notasmax.test` | `admin123` |
+
+Para começar, use estas planilhas. O [`LEIA-ME.md`](planilhas-teste/LEIA-ME.md) da pasta lista as 11, com as mensagens exatas de cada bloqueio.
+
+| Planilha | Abrir em | O que mostra |
+| --- | --- | --- |
+| `01-turma-1EM-2bimestre-sem-avisos` | Qualquer aluno do 1º EM, 2º bimestre | Importa sem bloqueio nem aviso |
+| `11-celulas-nulas` | Qualquer aluno do 1º EM, 2º bimestre | Célula vazia, "não fez" e "faltou" aparecem como "nulo" |
+| `06-bloqueios-acertos` | Isabela Pereira, 2º bimestre | Bloqueios de acertos, até corrigir na revisão |
+| `03-aluno-1bimestre-reimportacao` | Gustavo Almeida, 1º bimestre | Valor antigo e novo em cima de notas já lançadas |
+
+Testes automáticos: rode `npm run test:coverage` nas pastas `Backend` e `Frontend`. O CI usa a versão do Node que está no `.nvmrc` de cada pasta.
+
+**Com uma planilha real.** A seed é fictícia, então uma planilha real normalmente não passa nela. Para entrar sem bloqueio, o cadastro precisa ter:
+
+- o aluno na turma, com a tela aberta no bimestre da planilha;
+- um simulado para cada linha `SIM n`, com o mesmo número;
+- em cada simulado e disciplina, um número de questões maior ou igual aos acertos;
+- uma disciplina para cada coluna. Se a matéria se repete na turma e o professor não bate com o cabeçalho, a disciplina é escolhida na revisão.
+
 ## O que a planilha precisa ter
 
 O sistema lê uma aba por envio e se guia pela coluna A: os rótulos dela dizem o que é cada linha. Maiúsculas, acentos e espaços extras não fazem diferença.
@@ -304,7 +340,7 @@ A implementação fica toda no `notasmax-web-nosql`, com duas rotas novas na API
 
 **Testes novos.** `conferencia-notas.test.js`, `importacao-controller.test.js` e `planilha-notas-parser.test.js` no backend; testes ao lado de cada tela e componente no front.
 
-**Fora do repositório.** As 11 planilhas de teste e o `LEIA-ME.md` ficam na pasta `planilhas-teste`, ao lado do repositório. Para testar localmente, a seed `Backend/DB/seedImportacao.js` cria 26 usuários, 4 turmas e 72 simulados, e apaga o banco local antes.
+**Planilhas de teste.** As 11 planilhas e o `LEIA-ME.md` ficam em `docs/planilhas-teste`. A seed `Backend/DB/seedImportacao.js` cria 26 usuários, 4 turmas e 72 simulados, e apaga o banco local antes.
 
 ## Testes
 
@@ -312,18 +348,18 @@ As suítes automáticas passam por completo, e o fluxo principal foi testado no 
 
 | Verificação | Resultado | Como rodou |
 | --- | --- | --- |
-| Testes do backend | 185 de 185 | Node 26.5.1, a versão do CI |
-| Testes do front | 199 de 199 | Node 26.5.1 |
+| Testes do backend | 185 de 185 | Node 26.5.1, a versão do CI do backend |
+| Testes do front | 199 de 199 | Node 24.21.0, a versão do CI do front |
 | Cobertura de linhas do backend | 84,42% (mínimo 80%) | Node 26.5.1 |
-| Cobertura de linhas do front | 84,30% (mínimo 80%) | Node 26.5.1 |
+| Cobertura de linhas do front | 84,30% (mínimo 80%) | Node 24.21.0 |
 | Fluxo geral no navegador: telas, mensagens, avisos, permissões | 52 de 52 | Antes de a revisão listar SIMs fora da planilha; não foi repetido depois |
 | Alteração à mão: revisão, tela de lançamento e nova importação | 25 de 25 | Com a planilha original e um SIM fora dela |
 | Caminho do botão pela lista de alunos | Passou no 1º e no 2º bimestre | Banco da seed, sem gravar nada |
 | Bloqueios com as mensagens exatas, depois da mudança para "nulo" | 20 de 20 | Pela API de prévia, sem gravar nada; os bloqueios que só aparecem ao confirmar ficam nos testes automáticos |
 
-**Planilha original no sistema.** Com os 6 SIMs cadastrados como objetivos e os pesos da própria planilha, a importação entra sem bloqueio e liga as 13 colunas. A nota objetiva bate nas 13 disciplinas.
+**Planilha original no sistema.** Com os 6 SIMs cadastrados como objetivos e os pesos da própria planilha, a importação entra sem bloqueio, liga as 13 colunas e grava as 78 células como na planilha: 65 notas e 13 "nulo" no SIM 5. A nota objetiva bate nas 13 disciplinas. Enviar de novo deixa os 78 valores sem alteração.
 
-A nota dissertativa fica 0,00 e a final fica igual à objetiva, até o admin marcar SIMs como dissertativos e definir os pesos. Na planilha, a Nota Dissertativo é digitada e não vem de nenhuma linha SIM, então a diferença é esperada. A revisão avisa em cada coluna.
+A nota dissertativa fica 0,00 e a final fica igual à objetiva, até o admin marcar SIMs como dissertativos e definir os pesos. Na planilha, a Nota Dissertativo é digitada e não vem de nenhuma linha SIM, então a diferença é esperada. A revisão avisa em cada coluna. Na seed, a mesma planilha não passa: 4 colunas ficam sem disciplina, porque os professores são fictícios, e 6 células têm mais acertos que questões, porque a seed tem 2 ou 3 questões por disciplina.
 
 ## Limitações e decisões em aberto
 
