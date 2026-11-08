@@ -32,6 +32,9 @@ import TurmasAcertosPorMateria from "./pages/TurmasAcertosPorMateria";
 import NotFound from "./pages/NotFound";
 import SimuladosNotas from "./pages/SimuladosNotas";
 import SimuladosNotasIndividual from "./pages/SimuladosNotasIndividual";
+import PresencaTurmas from "./pages/Presenca/PresencaTurmas";
+import PresencaSimulados from "./pages/Presenca/PresencaSimulados";
+import PresencaSimulado from "./pages/Presenca/PresencaSimulado";
 
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
@@ -93,6 +96,30 @@ function App() {
             <GuestRoute>
               <RecuperarSenha />
             </GuestRoute>
+          } />
+
+          <Route path="/presenca" element={
+            <AdminRoute>
+              <Layout>
+                <PresencaTurmas />
+              </Layout>
+            </AdminRoute>
+          } />
+
+          <Route path="/presenca/turma/:turmaId" element={
+            <AdminRoute>
+              <Layout>
+                <PresencaSimulados />
+              </Layout>
+            </AdminRoute>
+          } />
+
+          <Route path="/presenca/turma/:turmaId/simulado/:simuladoId" element={
+            <AdminRoute>
+              <Layout>
+                <PresencaSimulado />
+              </Layout>
+            </AdminRoute>
           } />
 
           <Route path="Turmas/Cadastrar" element={

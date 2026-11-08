@@ -241,6 +241,14 @@ export default class PresencasController {
 
             return res.status(200).json({
                 simulado_id,
+                simulado: {
+                    id: simulado._id,
+                    numero: simulado.numero,
+                    tipo: simulado.tipo,
+                    bimestre: simulado.bimestre,
+                    data_realizacao: simulado.data_realizacao,
+                    turma: turma ? { id: turma._id, serie: turma.serie, ano: turma.ano } : null
+                },
                 total_alunos: lista.length,
                 total_presentes: lista.filter(a => a.presente).length,
                 alunos: lista

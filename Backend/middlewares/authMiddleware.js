@@ -37,4 +37,5 @@ export const authorizeRoles = (...roles) => (req, res, next) => {
 
 // Metodos para validação do tipo de usuario definido
 export const authorizeAdmin = authorizeRoles('administrador');
-export const authorizeProfessor = authorizeRoles('administrador, professor');
+export const authorizeProfessor = authorizeRoles('professor');
+export const authorizeAluno = authorizeRoles('aluno');

@@ -3,8 +3,9 @@ import TurmasController from "../Controllers/TurmasController.js";
 import TurmaDisciplinasController from "../Controllers/TurmaDisciplinasController.js";
 import UsuariosController from "../Controllers/UsuariosController.js";
 import MateriasController from "../Controllers/MateriasController.js";
-import { authenticateToken, authorizeAdmin, authorizeProfessor } from "../middlewares/authMiddleware.js";
+import { authenticateToken, authorizeAdmin, authorizeProfessor, authorizeAluno } from "../middlewares/authMiddleware.js";
 import SimuladosController from '../Controllers/SimuladosController.js';
+import PresencasController from "../Controllers/PresencasController.js";
 
 
 const routes = Router();
@@ -64,4 +65,11 @@ routes.get('/Simulados/ano=:ano/aluno=:aluno', SimuladosController.getSimuladosB
 routes.get('/Desempenho/aluno=:aluno/simulado=:simulado', SimuladosController.getDesempenhoAlunoBySimulado);
 routes.get('/Professor/:professor/data/anoAtual', SimuladosController.getProfessorDataCurrentYear);
 routes.get('/Calendario/aluno=:aluno', SimuladosController.getCalendarioByAluno);
+
+// Metodo para presença
+routes.post("/Presenca/Qr/Gerar", authenticateToken, authorizeAdmin, PresencasController.gerarQr);
+routes.get("/Presenca/Qr/Simulado/:simulado_id", authenticateToken, authorizeAdmin, PresencasController.obterQrAtivo);
+routes.patch("/Presenca/Qr/:qr_id/Revogar", authenticateToken, authorizeAdmin, PresencasController.revogarQr);
+routes.get("/Presenca/Simulado/:simulado_id", authenticateToken, authorizeAdmin, PresencasController.listarPorSimulado);
+routes.post("/Presenca/Registrar", authenticateToken, authorizeAluno, PresencasController.registrar);
 export default routes;
