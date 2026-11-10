@@ -9,6 +9,10 @@ export default function SimuladosNotasPesquisarForm({ onSubmit, simulados, simul
         bimestre: 0
     });
     const navigate = useNavigate();
+    const bimestresDisponiveis = [...new Set((simulados || [])
+        .map(item => Number(item.bimestre))
+        .filter(bimestre => Number.isFinite(bimestre) && bimestre >= 1))]
+        .sort((a, b) => a - b);
 
     useEffect(() => {
         if (simulado) {
@@ -79,9 +83,9 @@ export default function SimuladosNotasPesquisarForm({ onSubmit, simulados, simul
                         className={Style.formSelect}
                         onChange={handleChangeBimestre}
                     >
-                        {simulados.map((simulado, index) => (
-                            <option className={Style.formOption} key={`bimestre-${simulado._id}-${index}`} value={simulado.bimestre}>
-                                {simulado.bimestre}º Bimestre
+                        {bimestresDisponiveis.map(bimestre => (
+                            <option className={Style.formOption} key={`bimestre-${bimestre}`} value={bimestre}>
+                                {bimestre}º Bimestre
                             </option>
                         ))}
                     </select>

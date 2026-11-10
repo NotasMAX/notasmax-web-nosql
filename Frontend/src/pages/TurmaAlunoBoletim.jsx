@@ -1,3 +1,4 @@
+import { bimestreValido } from '../api/simuladoApi.js';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { getOne } from '../api/turmasapi.js';
@@ -38,7 +39,7 @@ export default function TurmaAlunoBoletim() {
     .filter(d => d.materia?._id)
     .sort((a, b) => a.materia.nome.localeCompare(b.materia.nome, 'pt-BR')), [turma]);
   const materiaAtual = materia || idDe(disciplinas[0]?.materia);
-  const bimestres = ['1', '2', '3', '4'];
+  const bimestres = [...new Set([...['1', '2', '3', '4'], ...simulados.filter(bimestreValido).map(s => String(s.bimestre))])].sort((a, b) => Number(a) - Number(b));
 
   const notas = useMemo(() => simulados
     .filter(s => String(s.bimestre) === bimestre)

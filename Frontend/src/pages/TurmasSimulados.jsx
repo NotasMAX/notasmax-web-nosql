@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { getByTurma } from '../api/simuladoApi.js';
+import { getByTurma, bimestreValido } from '../api/simuladoApi.js';
 import { getOne } from '../api/turmasapi.js';
 import { Toast } from 'primereact/toast';
 import { getAll } from '../api/simuladoApi.js';
@@ -80,13 +80,13 @@ export default function TurmasSimulados() {
 
 
     const BimestreOptions = Array.from(
-        new Set(simulados.map((s) => s.bimestre)
+        new Set(simulados.filter(bimestreValido).map((s) => s.bimestre)
             .filter(v => v !== null && v !== undefined)))
         .sort((a, b) => Number(a) - Number(b)
         );
 
     const displayedSimulados = filterBimestre === 'all'
-        ? simulados
+        ? simulados.filter(bimestreValido)
         : simulados.filter(s => String(s.bimestre) === String(filterBimestre));
 
 
@@ -129,6 +129,12 @@ export default function TurmasSimulados() {
 
             <div className='flex gap-3 flex-wrap'>
                 <button className={Style.buttonSecondarySmall} onClick={() => navigate(`/Turmas/${id}/Notas/Alunos`)}>
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path fillRule="evenodd" clipRule="evenodd" d="M2 7C2 4.23858 4.23858 2 7 2H17C19.7614 2 22 4.23858 22 7V17C22 19.7614 19.7614 22 17 22H7C4.23858 22 2 19.7614 2 17V7ZM7 4C5.34315 4 4 5.34315 4 7V17C4 18.6569 5.34315 20 7 20H17C18.6569 20 20 18.6569 20 17V7C20 5.34315 18.6569 4 17 4H7Z" fill="#4b5563" />
+                        <path fillRule="evenodd" clipRule="evenodd" d="M8 13C8.55228 13 9 13.4477 9 14V16C9 16.5523 8.55228 17 8 17C7.44772 17 7 16.5523 7 16L7 14C7 13.4477 7.44772 13 8 13Z" fill="#4b5563" />
+                        <path fillRule="evenodd" clipRule="evenodd" d="M16 7C16.5523 7 17 7.44772 17 8L17 16C17 16.5523 16.5523 17 16 17C15.4477 17 15 16.5523 15 16L15 8C15 7.44772 15.4477 7 16 7Z" fill="#4b5563" />
+                        <path fillRule="evenodd" clipRule="evenodd" d="M12 10C12.5523 10 13 10.4477 13 11L13 16C13 16.5523 12.5523 17 12 17C11.4477 17 11 16.5523 11 16L11 11C11 10.4477 11.4477 10 12 10Z" fill="#4b5563" />
+                    </svg>
                     Notas dos alunos
                 </button>
 
