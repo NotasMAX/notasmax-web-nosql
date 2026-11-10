@@ -13,6 +13,8 @@ import MateriaListar from "./pages/MateriaListar";
 import MateriaEditar from "./pages/MateriaEditar";
 import Simulados from "./pages/Simulados";
 import TurmasSimulados from "./pages/TurmasSimulados";
+import TurmaAlunosNotas from "./pages/TurmaAlunosNotas";
+import TurmaAlunoBoletim from "./pages/TurmaAlunoBoletim";
 import SimuladosAlunosList from "./pages/SimuladosAlunosList";
 import SimuladoNotasPorMateria from "./pages/SimuladoNotasPorMateria";
 import SimuladoNotasPorSimulado from "./pages/SimuladoNotasPorSimulado";
@@ -117,6 +119,13 @@ function App() {
                 <TurmasEditar />
               </Layout>
             </AdminRoute>
+          } />
+
+          <Route path="Turmas/:id/Notas/Alunos" element={
+            <AdminRoute><Layout><TurmaAlunosNotas /></Layout></AdminRoute>
+          } />
+          <Route path="Turmas/:id/Notas/Aluno/:alunoId" element={
+            <AdminRoute><Layout><TurmaAlunoBoletim /></Layout></AdminRoute>
           } />
 
           <Route path="Turmas/Info/:id" element={

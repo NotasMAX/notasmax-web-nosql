@@ -127,7 +127,11 @@ export default function TurmasSimulados() {
                 </div>
             </div>
 
-            <div className='flex gap-3'>
+            <div className='flex gap-3 flex-wrap'>
+                <button className={Style.buttonSecondarySmall} onClick={() => navigate(`/Turmas/${id}/Notas/Alunos`)}>
+                    Notas dos alunos
+                </button>
+
                 <button className={Style.buttonSecondarySmall}  onClick={() => {
                     navigate(`/Turmas/${turma._id}/Simulados/Notas/`);
                 }}>
