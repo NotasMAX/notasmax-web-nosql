@@ -49,6 +49,8 @@ export default function TurmaAlunoBoletim() {
         .filter(r => idDe(r.aluno_id) === alunoId && Number.isFinite(Number(r.nota)))
         .map(r => ({
           id: `${s._id}-${c._id}-${r._id}`,
+          simuladoId: idDe(s._id),
+          bimestreSimulado: s.bimestre,
           numero: s.numero,
           tipo: s.tipo,
           data: s.data_realizacao,
@@ -86,7 +88,7 @@ export default function TurmaAlunoBoletim() {
     {!disciplina ? <p>Nenhuma matéria cadastrada nesta turma.</p> : <>
       <div className="overflow-x-auto"><table className="w-full border-separate border-spacing-y-1 text-left">
         <thead><tr className="bg-gray-100"><th className="border-y border-l border-gray-300 rounded-l-lg p-3">Nº Simulado</th><th className="border-y border-gray-300 p-3">Tipo</th><th className="border-y border-gray-300 p-3">Peso</th><th className="border-y border-gray-300 p-3">Nota (0–10)</th><th className="border-y border-r border-gray-300 rounded-r-lg p-3">Nota ponderada</th></tr></thead>
-        <tbody>{notas.map(n => <tr key={n.id} className="bg-white"><td className="border-y border-l border-gray-300 rounded-l-lg p-3">Simulado {n.numero}</td><td className="border-y border-gray-300 p-3 capitalize">{n.tipo}</td><td className="border-y border-gray-300 p-3">{formatar(n.peso)}%</td><td className="border-y border-gray-300 p-3">{formatar(n.nota)}</td><td className="border-y border-r border-gray-300 rounded-r-lg p-3">{formatar(n.contribuicao)}</td></tr>)}</tbody>
+        <tbody>{notas.map(n => <tr key={n.id} className="bg-white"><td className="border-y border-l border-gray-300 rounded-l-lg p-3"><button type="button" className="text-blue-700 hover:underline focus-visible:underline focus-visible:outline-2 focus-visible:outline-blue-600 rounded" onClick={() => navigate(`/Simulados/Notas/${n.simuladoId}/${n.bimestreSimulado}/${alunoId}`)} aria-label={`Ver acertos do Simulado ${n.numero}`}>Simulado {n.numero}</button></td><td className="border-y border-gray-300 p-3 capitalize">{n.tipo}</td><td className="border-y border-gray-300 p-3">{formatar(n.peso)}%</td><td className="border-y border-gray-300 p-3">{formatar(n.nota)}</td><td className="border-y border-r border-gray-300 rounded-r-lg p-3">{formatar(n.contribuicao)}</td></tr>)}</tbody>
       </table></div>
       {!notas.length && <p className="text-gray-600">Nenhuma nota lançada para esta matéria neste bimestre.</p>}
       <div className="flex justify-between bg-gray-100 border border-gray-300 rounded-lg px-4 py-3"><strong>Média das notas dos simulados</strong><span>{mediaSimples === null ? '—' : formatar(mediaSimples)}</span></div>
