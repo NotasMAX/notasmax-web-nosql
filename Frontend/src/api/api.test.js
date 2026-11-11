@@ -66,20 +66,23 @@ describe('materia API', () => {
 });
 
 describe('simulado API', () => {
-  it('delegates lookup, creation, update, and content requests', () => {
+  it('delegates lookup, creation, update, and content requests', async () => {
     const payload = { nome: 'Simulado' };
+    api.get.mockResolvedValue({ data: { simulados: [] } });
 
-    simulados.getByTurma('t-1');
+    const wrappedRequests = [simulados.getByTurma('t-1')];
     simulados.cadastrarSimulado(payload);
     simulados.getOne('s-1');
-    simulados.getAll();
+    wrappedRequests.push(simulados.getAll());
     simulados.getTurma('t-1');
-    simulados.getByAlunoAndBimestre('a-1', 2, 's-1');
-    simulados.findSimuladoByBimestreAnoSerie(2, 2026, 1);
+    wrappedRequests.push(simulados.getByAlunoAndBimestre('a-1', 2, 's-1'));
+    wrappedRequests.push(simulados.findSimuladoByBimestreAnoSerie(2, 2026, 1));
     simulados.updateSimulado('s-1', payload);
-    simulados.getSimuladosByTurma('t-1');
+    wrappedRequests.push(simulados.getSimuladosByTurma('t-1'));
     simulados.atualizarConteudos('s-1', payload);
     simulados.getOneSimple('s-1');
+
+    await Promise.all(wrappedRequests);
 
     expect(api.get).toHaveBeenNthCalledWith(1, '/Turmas/ByTurma/t-1');
     expect(api.post).toHaveBeenCalledWith('/Simulado/Create', payload);
