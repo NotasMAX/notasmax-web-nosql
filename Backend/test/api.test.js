@@ -3,6 +3,11 @@ import assert from 'node:assert/strict';
 import mongoose from 'mongoose';
 import { response } from './helpers.js';
 
+process.env.JWT_SECRET ??= 'backend-test-jwt-secret';
+process.env.COOKIE_SECURE ??= 'false';
+process.env.COOKIE_SAME_SITE ??= 'lax';
+process.env.CORS_ORIGINS ??= 'http://localhost:5173';
+
 test('controllers and models can be imported without opening MongoDB', async () => {
   const originalConnect = mongoose.connect;
   let connectionAttempts = 0;
@@ -23,16 +28,20 @@ test('controllers and models can be imported without opening MongoDB', async () 
 test('database bootstrap still requests the configured local Mongo URI', async (t) => {
   const originalConnect = mongoose.connect;
   const originalLog = console.log;
+  const originalUri = process.env.MONGODB_URI;
   const connections = [];
   mongoose.connect = async (uri) => { connections.push(uri); return mongoose; };
   console.log = () => {};
   t.after(() => {
     mongoose.connect = originalConnect;
     console.log = originalLog;
+    if (originalUri === undefined) delete process.env.MONGODB_URI;
+    else process.env.MONGODB_URI = originalUri;
   });
 
-  await import('../DB/conn.js');
-  await new Promise((resolve) => setImmediate(resolve));
+  process.env.MONGODB_URI = 'mongodb://127.0.0.1:27017/NotasMax';
+  const { connectDatabase } = await import('../DB/conn.js');
+  await connectDatabase(process.env.MONGODB_URI);
   assert.deepEqual(connections, ['mongodb://127.0.0.1:27017/NotasMax']);
 });
 

@@ -26,3 +26,27 @@ test('password reset email templates are rendered through a fake transport', asy
     else process.env.EMAIL_PASS = priorPass;
   }
 });
+
+test('unconfigured email transport never logs reset credentials or recipient details', async () => {
+  const priorUser = process.env.EMAIL_USER;
+  const priorPass = process.env.EMAIL_PASS;
+  delete process.env.EMAIL_USER;
+  delete process.env.EMAIL_PASS;
+  const warnings = [];
+  const originalWarn = console.warn;
+  console.warn = (...values) => warnings.push(values.join(' '));
+  try {
+    const { sendPasswordResetEmail, sendPasswordResetEmailMobile } = await import('../services/emailService.js?without-mail-config');
+    await sendPasswordResetEmail('private@example.test', 'synthetic-secret-reset-token');
+    await sendPasswordResetEmailMobile('private@example.test', 'synthetic-secret-mobile-token');
+    assert.equal(warnings.length, 2);
+    assert.ok(warnings.every((warning) => !warning.includes('private@example.test')));
+    assert.ok(warnings.every((warning) => !warning.includes('synthetic-secret')));
+  } finally {
+    console.warn = originalWarn;
+    if (priorUser === undefined) delete process.env.EMAIL_USER;
+    else process.env.EMAIL_USER = priorUser;
+    if (priorPass === undefined) delete process.env.EMAIL_PASS;
+    else process.env.EMAIL_PASS = priorPass;
+  }
+});

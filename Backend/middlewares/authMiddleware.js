@@ -1,6 +1,5 @@
 import jwt from 'jsonwebtoken';
-
-const JWT_SECRET = process.env.JWT_SECRET || "chave-secreta-super-segura";
+import { getCookieOptions, getJwtSecret } from '../config.js';
 
 export const authenticateToken = (req, res, next) => {
     // 1. Obter o token do COOKIE 'jwt'
@@ -12,7 +11,7 @@ export const authenticateToken = (req, res, next) => {
 
     try {
         // 2. Verificar e Decodificar o Token
-        const decoded = jwt.verify(token, JWT_SECRET);
+        const decoded = jwt.verify(token, getJwtSecret());
 
         // 3. Anexar o payload do usuário
         req.user = decoded; 
@@ -21,11 +20,15 @@ export const authenticateToken = (req, res, next) => {
         
     } catch (err) {
         // Token inválido/expirado: limpa o cookie
-        console.error("ERRO NA VERIFICAÇÃO DO JWT. Tipo:", (err).name, "Mensagem:", (err).message);
-        res.clearCookie('jwt'); 
+        res.clearCookie('jwt', getCookieOptionsForClear());
         return res.status(403).json({ message: 'Sessão inválida ou expirada. Faça login novamente.' });
     }
 };
+
+function getCookieOptionsForClear() {
+    const { maxAge, ...options } = getCookieOptions();
+    return options;
+}
 
 // Metodo generio para fazer a validação do tipo de usuario
 export const authorizeRoles = (...roles) => (req, res, next) => {
