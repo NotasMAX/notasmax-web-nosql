@@ -1,9 +1,22 @@
 import jwt from 'jsonwebtoken';
 import { getCookieOptions, getJwtSecret } from '../config.js';
 
+function getBearerToken(req) {
+    const authorization = typeof req.get === 'function'
+        ? req.get('authorization')
+        : req.headers?.authorization ?? req.headers?.Authorization;
+    const match = typeof authorization === 'string'
+        ? authorization.match(/^Bearer\s+(\S+)$/i)
+        : null;
+
+    return match?.[1] ?? null;
+}
+
 export const authenticateToken = (req, res, next) => {
-    // 1. Obter o token do COOKIE 'jwt'
-    const token = req.cookies.jwt; 
+    const bearerToken = getBearerToken(req);
+    const cookieToken = req.cookies?.jwt;
+    const token = bearerToken ?? cookieToken;
+    const tokenSource = bearerToken ? 'bearer' : cookieToken ? 'cookie' : null;
     
     if (!token) {
         return res.status(401).json({ message: 'Acesso negado. Necessário estar logado.' });
@@ -19,8 +32,10 @@ export const authenticateToken = (req, res, next) => {
         next();
         
     } catch (err) {
-        // Token inválido/expirado: limpa o cookie
-        res.clearCookie('jwt', getCookieOptionsForClear());
+        // Só limpar o cookie quando a autenticação veio dele; Bearer é stateless.
+        if (tokenSource === 'cookie') {
+            res.clearCookie('jwt', getCookieOptionsForClear());
+        }
         return res.status(403).json({ message: 'Sessão inválida ou expirada. Faça login novamente.' });
     }
 };
