@@ -8,11 +8,15 @@ import Turma from '../Models/Turma.js';
 import TurmaDisciplina from '../Models/TurmaDisciplina.js';
 import Usuario from '../Models/Usuario.js';
 import MapeamentoColuna from '../Models/MapeamentoColuna.js';
+import ImportacaoNotas from '../Models/ImportacaoNotas.js';
+import { armazenamentoPlanilhas } from '../services/armazenamentoPlanilhas.js';
 import { receberPlanilha } from '../middlewares/uploadPlanilha.js';
 import { response } from './helpers.js';
 
 const ALUNO = '507f1f77bcf86cd799439011';
 const OUTRO_ALUNO = '507f1f77bcf86cd799439012';
+const ADMIN = '507f1f77bcf86cd799439013';
+const BLOB = 'importacoes-notas/turma/2/conteudo.xlsx';
 const TURMA = '507f1f77bcf86cd799439021';
 const DISCIPLINA = '507f1f77bcf86cd799439031';
 const SIMULADO = '507f1f77bcf86cd799439041';
@@ -33,7 +37,10 @@ const simuladoDoBanco = () => ({
 });
 
 function simularCadastro(t, { turma = { _id: TURMA, serie: 1, ano: 2026, alunos: [ALUNO, OUTRO_ALUNO] }, aluno = { _id: ALUNO, nome: 'Aluna Exemplo' } } = {}) {
-  const chamadas = { simulados: [], mapeamentos: [] };
+  const chamadas = { simulados: [], mapeamentos: [], guardadas: [], apagadas: [], registros: [] };
+  t.mock.method(armazenamentoPlanilhas, 'guardar', async (planilhaGuardada) => { chamadas.guardadas.push(planilhaGuardada); return { nome: BLOB, novo: true }; });
+  t.mock.method(armazenamentoPlanilhas, 'apagar', async (nome) => { chamadas.apagadas.push(nome); });
+  t.mock.method(ImportacaoNotas, 'create', async (registro) => { chamadas.registros.push(registro); });
   t.mock.method(Turma, 'findById', async () => turma);
   t.mock.method(Usuario, 'findById', async () => aluno);
   t.mock.method(Usuario, 'find', async () => [{ _id: ALUNO, nome: 'Aluna Exemplo' }, { _id: OUTRO_ALUNO, nome: 'Outro Aluno' }]);
@@ -63,11 +70,21 @@ const corpoDaConfirmacao = (mudancas = {}) => ({
   aluno_id: ALUNO,
   turma_id: TURMA,
   bimestre: '2',
+  aba: 'Aluna Exemplo',
   colunas: [{ coluna: 'B', cabecalho: 'ingles', cabecalhoOriginal: 'INGLÊS', fator: null, notaDissertativaPlanilha: null, turma_disciplina_id: DISCIPLINA, trocada: false }],
   linhas: [{ numero: 1, celulas: [{ coluna: 'B', celula: 'B4', acertos: 2 }] }],
   tipos: [],
   pesos: [],
   ...mudancas,
+});
+
+const arquivoEnviado = () => ({ buffer: Buffer.from('planilha'), originalname: 'Notas Física.xlsx', size: 8 });
+
+// Como chega do multer: a planilha em req.file e a conferência em JSON no campo "dados".
+const pedido = (mudancas = {}) => ({
+  file: arquivoEnviado(),
+  body: { dados: JSON.stringify(corpoDaConfirmacao(mudancas)) },
+  user: { id: ADMIN },
 });
 
 test('the preview requires a file', async () => {
@@ -90,7 +107,7 @@ for (const [descricao, mudanca, mensagem] of [
     assert.equal(previa.body.message, mensagem);
 
     const confirmacao = response();
-    await ImportacaoController.confirmar({ body: { ...corpoDaConfirmacao(), ...mudanca } }, confirmacao);
+    await ImportacaoController.confirmar(pedido(mudanca), confirmacao);
     assert.equal(confirmacao.statusCode, 422);
     assert.equal(confirmacao.body.message, mensagem);
   });
@@ -110,9 +127,27 @@ for (const [descricao, cadastro, mensagem] of [
     assert.equal(previa.body.message, mensagem);
 
     const confirmacao = response();
-    await ImportacaoController.confirmar({ body: corpoDaConfirmacao() }, confirmacao);
+    await ImportacaoController.confirmar(pedido(), confirmacao);
     assert.equal(confirmacao.statusCode, 422);
     assert.equal(confirmacao.body.message, mensagem);
+  });
+}
+
+test('the confirmation requires the file', async () => {
+  const res = response();
+  await ImportacaoController.confirmar({ ...pedido(), file: undefined }, res);
+
+  assert.equal(res.statusCode, 422);
+  assert.equal(res.body.message, 'Envie a planilha.');
+});
+
+for (const [descricao, dados] of [['missing', undefined], ['not JSON', 'não é json'], ['not an object', '[1, 2]'], ['null', 'null']]) {
+  test(`the confirmation refuses data that is ${descricao}`, async () => {
+    const res = response();
+    await ImportacaoController.confirmar({ ...pedido(), body: { dados } }, res);
+
+    assert.equal(res.statusCode, 422);
+    assert.equal(res.body.message, 'Os dados da conferência não vieram no formato esperado.');
   });
 }
 
@@ -157,7 +192,7 @@ test('the confirmation creates the result and answers with the counts', async (t
   const chamadas = simularCadastro(t);
   const res = response();
 
-  await ImportacaoController.confirmar({ body: corpoDaConfirmacao() }, res);
+  await ImportacaoController.confirmar(pedido(), res);
 
   assert.equal(res.statusCode, 200);
   assert.deepEqual(res.body, { message: 'Notas importadas com sucesso', criados: 1, atualizados: 0, removidos: 0, ignorados: 0 });
@@ -172,15 +207,120 @@ test('the confirmation creates the result and answers with the counts', async (t
   assert.deepEqual(chamadas.mapeamentos, []);
 });
 
+test('the confirmation stores the sheet and records the import', async (t) => {
+  const chamadas = simularCadastro(t);
+  const res = response();
+
+  await ImportacaoController.confirmar(pedido(), res);
+
+  assert.equal(res.statusCode, 200);
+  assert.deepEqual(chamadas.guardadas, [{ buffer: Buffer.from('planilha'), turma_id: TURMA, bimestre: 2 }]);
+  assert.deepEqual(chamadas.registros, [{
+    turma_id: TURMA,
+    aluno_id: ALUNO,
+    bimestre: 2,
+    importado_por: ADMIN,
+    planilha: { blob: BLOB, nome_original: 'Notas Física.xlsx', tamanho: 8, aba: 'Aluna Exemplo' },
+    contagem: { criados: 1, atualizados: 0, removidos: 0, ignorados: 0 },
+  }]);
+  assert.deepEqual(chamadas.apagadas, []);
+});
+
+test('the record has no blob when the environment does not store sheets', async (t) => {
+  const chamadas = simularCadastro(t);
+  t.mock.method(armazenamentoPlanilhas, 'guardar', async () => null);
+  const res = response();
+
+  await ImportacaoController.confirmar(pedido(), res);
+
+  assert.equal(res.statusCode, 200);
+  assert.equal(chamadas.registros[0].planilha.blob, null);
+});
+
+test('the record ignores a tab name that is not text', async (t) => {
+  const chamadas = simularCadastro(t);
+  const res = response();
+
+  await ImportacaoController.confirmar(pedido({ aba: 42 }), res);
+
+  assert.equal(res.statusCode, 200);
+  assert.equal(chamadas.registros[0].planilha.aba, null);
+});
+
+test('the confirmation writes no grade when the sheet cannot be stored', async (t) => {
+  const chamadas = simularCadastro(t);
+  t.mock.method(armazenamentoPlanilhas, 'guardar', async () => { throw new Error('sem permissão no container'); });
+  const erros = t.mock.method(console, 'error', () => {});
+  const res = response();
+
+  await ImportacaoController.confirmar(pedido(), res);
+
+  assert.equal(res.statusCode, 502);
+  assert.equal(res.body.message, 'Não foi possível guardar a planilha. Nenhuma nota foi gravada.');
+  assert.deepEqual([chamadas.simulados, chamadas.mapeamentos, chamadas.registros], [[], [], []]);
+  assert.match(erros.mock.calls[0].arguments.join(' '), /sem permissão no container/);
+});
+
+test('the confirmation removes the stored sheet when the grades cannot be written', async (t) => {
+  const chamadas = simularCadastro(t);
+  t.mock.method(Simulado, 'bulkWrite', async () => { throw new Error('escrita falhou'); });
+  const res = response();
+
+  await ImportacaoController.confirmar(pedido(), res);
+
+  assert.equal(res.statusCode, 500);
+  assert.equal(res.body.error, 'escrita falhou');
+  assert.deepEqual(chamadas.apagadas, [BLOB]);
+  assert.deepEqual(chamadas.registros, []);
+});
+
+test('a failed import keeps a sheet that another import already stored', async (t) => {
+  const chamadas = simularCadastro(t);
+  t.mock.method(armazenamentoPlanilhas, 'guardar', async () => ({ nome: BLOB, novo: false }));
+  t.mock.method(Simulado, 'bulkWrite', async () => { throw new Error('escrita falhou'); });
+  const res = response();
+
+  await ImportacaoController.confirmar(pedido(), res);
+
+  assert.equal(res.statusCode, 500);
+  assert.deepEqual(chamadas.apagadas, []);
+});
+
+test('a failure removing the sheet is logged and keeps the original error', async (t) => {
+  simularCadastro(t);
+  t.mock.method(Simulado, 'bulkWrite', async () => { throw new Error('escrita falhou'); });
+  t.mock.method(armazenamentoPlanilhas, 'apagar', async () => { throw new Error('apagar não permitido'); });
+  const erros = t.mock.method(console, 'error', () => {});
+  const res = response();
+
+  await ImportacaoController.confirmar(pedido(), res);
+
+  assert.equal(res.statusCode, 500);
+  assert.equal(res.body.error, 'escrita falhou');
+  assert.match(erros.mock.calls[0].arguments.join(' '), /apagar não permitido/);
+});
+
+test('a failure recording the import keeps the grades and answers 200', async (t) => {
+  const chamadas = simularCadastro(t);
+  t.mock.method(ImportacaoNotas, 'create', async () => { throw new Error('registro falhou'); });
+  const erros = t.mock.method(console, 'error', () => {});
+  const res = response();
+
+  await ImportacaoController.confirmar(pedido(), res);
+
+  assert.equal(res.statusCode, 200);
+  assert.equal(chamadas.simulados.length, 1);
+  assert.deepEqual(chamadas.apagadas, []);
+  assert.match(erros.mock.calls[0].arguments.join(' '), /registro falhou/);
+});
+
 test('the confirmation saves the column the admin linked by hand', async (t) => {
   const chamadas = simularCadastro(t);
   const res = response();
 
-  await ImportacaoController.confirmar({
-    body: corpoDaConfirmacao({
-      colunas: [{ coluna: 'B', cabecalho: 'artes', cabecalhoOriginal: 'ARTES', turma_disciplina_id: DISCIPLINA, trocada: true }],
-    }),
-  }, res);
+  await ImportacaoController.confirmar(pedido({
+    colunas: [{ coluna: 'B', cabecalho: 'artes', cabecalhoOriginal: 'ARTES', turma_disciplina_id: DISCIPLINA, trocada: true }],
+  }), res);
 
   assert.equal(res.statusCode, 200);
   const { filter, update, upsert } = chamadas.mapeamentos[0][0].updateOne;
@@ -194,7 +334,7 @@ test('the confirmation does not touch the database when nothing changed', async 
   const chamadas = simularCadastro(t);
   const res = response();
 
-  await ImportacaoController.confirmar({ body: corpoDaConfirmacao({ linhas: [{ numero: 1, celulas: [{ coluna: 'B', celula: 'B4', acertos: null }] }] }) }, res);
+  await ImportacaoController.confirmar(pedido({ linhas: [{ numero: 1, celulas: [{ coluna: 'B', celula: 'B4', acertos: null }] }] }), res);
 
   assert.equal(res.statusCode, 200);
   assert.equal(res.body.ignorados, 1);
@@ -205,11 +345,11 @@ test('the confirmation repeats the checks and writes nothing when a rule fails',
   const chamadas = simularCadastro(t);
   const res = response();
 
-  await ImportacaoController.confirmar({ body: corpoDaConfirmacao({ linhas: [{ numero: 1, celulas: [{ coluna: 'B', celula: 'B4', acertos: 9 }] }] }) }, res);
+  await ImportacaoController.confirmar(pedido({ linhas: [{ numero: 1, celulas: [{ coluna: 'B', celula: 'B4', acertos: 9 }] }] }), res);
 
   assert.equal(res.statusCode, 422);
   assert.equal(res.body.bloqueios[0].codigo, 'ACERTOS_ACIMA_DO_LIMITE');
-  assert.deepEqual(chamadas.simulados, []);
+  assert.deepEqual([chamadas.simulados, chamadas.guardadas, chamadas.registros], [[], [], []]);
 });
 
 test('the confirmation refuses a weight that would push another student above 10', async (t) => {
@@ -220,7 +360,7 @@ test('the confirmation refuses a weight that would push another student above 10
   }]);
   const res = response();
 
-  await ImportacaoController.confirmar({ body: corpoDaConfirmacao({ pesos: [{ simulado_id: SIMULADO, turma_disciplina_id: DISCIPLINA, peso: 100 }] }) }, res);
+  await ImportacaoController.confirmar(pedido({ pesos: [{ simulado_id: SIMULADO, turma_disciplina_id: DISCIPLINA, peso: 100 }] }), res);
 
   assert.equal(res.statusCode, 422);
   assert.equal(res.body.bloqueios[0].codigo, 'NOTA_DE_OUTRO_ALUNO_ACIMA_DE_10');
@@ -228,15 +368,16 @@ test('the confirmation refuses a weight that would push another student above 10
   assert.deepEqual(chamadas.simulados, []);
 });
 
-test('the confirmation reports an unexpected failure', async (t) => {
-  simularCadastro(t);
-  t.mock.method(Simulado, 'bulkWrite', async () => { throw new Error('escrita falhou'); });
+test('the confirmation reports an unexpected failure before writing', async (t) => {
+  const chamadas = simularCadastro(t);
+  t.mock.method(Usuario, 'find', async () => { throw new Error('banco fora do ar'); });
   const res = response();
 
-  await ImportacaoController.confirmar({ body: corpoDaConfirmacao() }, res);
+  await ImportacaoController.confirmar(pedido(), res);
 
   assert.equal(res.statusCode, 500);
-  assert.equal(res.body.error, 'escrita falhou');
+  assert.equal(res.body.error, 'banco fora do ar');
+  assert.deepEqual(chamadas.guardadas, []);
 });
 
 async function enviar(t, nome, conteudo) {
@@ -255,6 +396,12 @@ test('the upload accepts an xlsx and keeps it in memory', async (t) => {
   const { status, corpo } = await enviar(t, 'NOTAS.XLSX', Buffer.from('x'));
   assert.equal(status, 200);
   assert.deepEqual(corpo, { recebido: 'NOTAS.XLSX', tamanho: 1 });
+});
+
+test('the upload keeps accents in the file name', async (t) => {
+  const { status, corpo } = await enviar(t, 'Notas Física 2º.xlsx', Buffer.from('x'));
+  assert.equal(status, 200);
+  assert.equal(corpo.recebido, 'Notas Física 2º.xlsx');
 });
 
 test('the upload refuses other file types', async (t) => {

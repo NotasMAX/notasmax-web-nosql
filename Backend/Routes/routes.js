@@ -68,5 +68,5 @@ routes.get('/Professor/:professor/data/anoAtual', SimuladosController.getProfess
 routes.get('/Calendario/aluno=:aluno', SimuladosController.getCalendarioByAluno);
 
 routes.post('/Importacoes/Notas/Previa', authenticateToken, authorizeAdmin, receberPlanilha, ImportacaoController.previa);
-routes.post('/Importacoes/Notas/Confirmar', authenticateToken, authorizeAdmin, ImportacaoController.confirmar);
+routes.post('/Importacoes/Notas/Confirmar', authenticateToken, authorizeAdmin, receberPlanilha, ImportacaoController.confirmar);
 export default routes;

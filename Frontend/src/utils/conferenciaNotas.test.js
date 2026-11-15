@@ -44,10 +44,11 @@ describe('conferenciaNotas', () => {
       ],
     };
 
-    expect(montarConfirmacao({ estado, aluno_id: 'a1', turma_id: 't1', bimestre: '2' })).toEqual({
+    expect(montarConfirmacao({ estado, aluno_id: 'a1', turma_id: 't1', bimestre: '2', aba: 'Maria Silva' })).toEqual({
       aluno_id: 'a1',
       turma_id: 't1',
       bimestre: '2',
+      aba: 'Maria Silva',
       colunas: [{ coluna: 'B', cabecalho: 'fisica', cabecalhoOriginal: 'FÍSICA', fator: 0.3, notaDissertativaPlanilha: 0, turma_disciplina_id: 'd1', trocada: true }],
       linhas: [{
         numero: 1,

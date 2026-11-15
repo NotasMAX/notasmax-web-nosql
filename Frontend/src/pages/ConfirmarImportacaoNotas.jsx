@@ -27,6 +27,7 @@ export default function ConfirmarImportacaoNotas() {
     const { state } = useLocation();
     const navigate = useNavigate();
     const previa = state?.previa;
+    const arquivo = state?.arquivo;
 
     const [estado, setEstado] = useState(() => (previa
         ? { bimestre: previa.bimestre, colunas: previa.colunas, disciplinas: previa.disciplinas, simulados: previa.simulados, linhas: previa.linhas }
@@ -42,7 +43,7 @@ export default function ConfirmarImportacaoNotas() {
 
     const conferencia = useMemo(() => (estado ? validarConferencia(estado) : { bloqueios: [], avisos: [] }), [estado]);
 
-    if (!previa) return <Navigate to={`/Simulados/Importar/${turma}/${bimestre}/${aluno}`} replace />;
+    if (!previa || !arquivo) return <Navigate to={`/Simulados/Importar/${turma}/${bimestre}/${aluno}`} replace />;
 
     const bloqueios = [...previa.problemasDaPlanilha.bloqueios, ...conferencia.bloqueios, ...bloqueiosDoServidor];
     const avisos = [...previa.problemasDaPlanilha.avisos, ...conferencia.avisos];
@@ -97,9 +98,13 @@ export default function ConfirmarImportacaoNotas() {
     };
 
     const enviar = async () => {
+        const dados = new FormData();
+        dados.append("arquivo", arquivo);
+        dados.append("dados", JSON.stringify(montarConfirmacao({ estado, aluno_id: aluno, turma_id: turma, bimestre, aba: previa.aba })));
+
         setEnviando(true);
         try {
-            const { data } = await confirmarImportacaoNotas(montarConfirmacao({ estado, aluno_id: aluno, turma_id: turma, bimestre }));
+            const { data } = await confirmarImportacaoNotas(dados);
             setResultado(data);
         } catch (error) {
             const problemas = error.response?.data?.bloqueios;

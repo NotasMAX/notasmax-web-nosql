@@ -2,10 +2,12 @@ import multer from 'multer';
 
 const LIMITE_EM_BYTES = 2 * 1024 * 1024;
 
-// Em memória: o arquivo só é lido durante a requisição, e nada fica salvo em disco.
+// Em memória: nada fica salvo no disco do servidor. Na confirmação, a planilha segue para o Blob Storage.
 const upload = multer({
     storage: multer.memoryStorage(),
     limits: { fileSize: LIMITE_EM_BYTES },
+    // Sem isso, um nome como "Física.xlsx" chega como "FÃ­sica.xlsx".
+    defParamCharset: 'utf8',
     fileFilter: (req, file, callback) => {
         if (/\.xlsx$/i.test(file.originalname)) return callback(null, true);
         return callback(new multer.MulterError('LIMIT_UNEXPECTED_FILE', file.fieldname));

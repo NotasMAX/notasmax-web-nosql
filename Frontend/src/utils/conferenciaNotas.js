@@ -171,10 +171,11 @@ export const interpretarAcertos = (texto) => {
 
 export const interpretarPeso = (texto) => (String(texto).trim() === '' ? '' : Number(texto));
 
-export const montarConfirmacao = ({ estado, aluno_id, turma_id, bimestre }) => ({
+export const montarConfirmacao = ({ estado, aluno_id, turma_id, bimestre, aba }) => ({
     aluno_id,
     turma_id,
     bimestre,
+    aba,
     colunas: estado.colunas.map(({ coluna, cabecalho, cabecalhoOriginal, fator, notaDissertativaPlanilha, turma_disciplina_id, trocada }) => ({
         coluna, cabecalho, cabecalhoOriginal, fator, notaDissertativaPlanilha, turma_disciplina_id, trocada: Boolean(trocada),
     })),

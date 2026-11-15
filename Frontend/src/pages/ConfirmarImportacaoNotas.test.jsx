@@ -56,9 +56,11 @@ const previaBase = (mudancas = {}) => ({
   ...mudancas,
 });
 
-function abrir(previa = previaBase()) {
+const planilha = new File(['conteudo'], 'notas.xlsx');
+
+function abrir(previa = previaBase(), arquivo = planilha) {
   render(
-    <MemoryRouter initialEntries={['/inicio', { pathname: '/Simulados/Importar/t1/2/a1/Confirmar', state: previa ? { previa } : undefined }]} initialIndex={1}>
+    <MemoryRouter initialEntries={['/inicio', { pathname: '/Simulados/Importar/t1/2/a1/Confirmar', state: previa ? { previa, arquivo } : undefined }]} initialIndex={1}>
       <Routes>
         <Route path="/inicio" element={<p>Tela anterior</p>} />
         <Route path="/Simulados/Importar/:turma/:bimestre/:aluno" element={<p>Tela de upload</p>} />
@@ -70,6 +72,8 @@ function abrir(previa = previaBase()) {
 }
 
 const confirmar = () => screen.getByRole('button', { name: 'Confirmar' });
+// A confirmação vai como FormData: a planilha em "arquivo" e a conferência em JSON em "dados".
+const conferenciaEnviada = () => JSON.parse(confirmarImportacaoNotas.mock.calls[0][0].get('dados'));
 const editar = (numero, coluna) => fireEvent.click(screen.getByRole('button', { name: `Editar simulado ${numero} de ${coluna}` }));
 
 describe('ConfirmarImportacaoNotas', () => {
@@ -77,6 +81,11 @@ describe('ConfirmarImportacaoNotas', () => {
 
   it('volta para o upload quando a página é aberta sem prévia', () => {
     abrir(null);
+    expect(screen.getByText('Tela de upload')).toBeInTheDocument();
+  });
+
+  it('volta para o upload quando a página é aberta sem a planilha', () => {
+    abrir(previaBase(), null);
     expect(screen.getByText('Tela de upload')).toBeInTheDocument();
   });
 
@@ -113,8 +122,9 @@ describe('ConfirmarImportacaoNotas', () => {
     fireEvent.click(confirmar());
 
     expect(await screen.findByRole('status')).toHaveTextContent('3 criada(s), 1 atualizada(s), 0 removida(s) e 2 sem alteração.');
-    const enviado = confirmarImportacaoNotas.mock.calls[0][0];
-    expect(enviado).toMatchObject({ aluno_id: 'a1', turma_id: 't1', bimestre: '2', tipos: [], pesos: [] });
+    expect(confirmarImportacaoNotas.mock.calls[0][0].get('arquivo').name).toBe('notas.xlsx');
+    const enviado = conferenciaEnviada();
+    expect(enviado).toMatchObject({ aluno_id: 'a1', turma_id: 't1', bimestre: '2', aba: 'Maria Silva', tipos: [], pesos: [] });
     expect(enviado.linhas[1].celulas[0]).toEqual({ coluna: 'B', celula: 'B5', acertos: null });
 
     fireEvent.click(screen.getByRole('button', { name: 'Ver notas do aluno' }));
@@ -179,7 +189,7 @@ describe('ConfirmarImportacaoNotas', () => {
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
     fireEvent.click(confirmar());
     await screen.findByRole('status');
-    expect(confirmarImportacaoNotas.mock.calls[0][0].colunas[1]).toMatchObject({ turma_disciplina_id: 'd2', trocada: true });
+    expect(conferenciaEnviada().colunas[1]).toMatchObject({ turma_disciplina_id: 'd2', trocada: true });
   });
 
   it('bloqueia duas colunas na mesma disciplina', () => {
@@ -213,7 +223,7 @@ describe('ConfirmarImportacaoNotas', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Sim' }));
 
     await screen.findByRole('status');
-    const enviado = confirmarImportacaoNotas.mock.calls[0][0];
+    const enviado = conferenciaEnviada();
     expect(enviado.pesos).toEqual([{ simulado_id: 's1', turma_disciplina_id: 'd1', peso: 40 }]);
     expect(enviado.tipos).toEqual([{ simulado_id: 's1', tipo: 'dissertativo' }]);
   });
@@ -283,7 +293,7 @@ describe('ConfirmarImportacaoNotas', () => {
 
     fireEvent.click(confirmar());
     await screen.findByRole('status');
-    expect(confirmarImportacaoNotas.mock.calls[0][0].linhas[2]).toEqual({
+    expect(conferenciaEnviada().linhas[2]).toEqual({
       numero: 3,
       celulas: [{ coluna: 'B', celula: 'SIM 3, coluna B', acertos: 2 }],
     });

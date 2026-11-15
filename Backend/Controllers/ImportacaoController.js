@@ -4,7 +4,9 @@ import Turma from '../Models/Turma.js';
 import TurmaDisciplina from '../Models/TurmaDisciplina.js';
 import Usuario from '../Models/Usuario.js';
 import MapeamentoColuna from '../Models/MapeamentoColuna.js';
+import ImportacaoNotas from '../Models/ImportacaoNotas.js';
 import { lerPlanilhaNotas } from '../services/planilhaNotasParser.js';
+import { armazenamentoPlanilhas } from '../services/armazenamentoPlanilhas.js';
 import {
     montarEstadoDaConfirmacao,
     montarOperacoes,
@@ -32,6 +34,16 @@ const buscarDisciplinas = async (turma_id) => {
         { $project: { materia: '$materia.nome', professor: '$professor.nome' } },
     ]);
     return disciplinas.map(({ _id, materia, professor }) => ({ _id: String(_id), materia, professor }));
+};
+
+// A confirmação chega como multipart, com a planilha no campo "arquivo" e a conferência em JSON no campo "dados".
+const lerDados = (texto) => {
+    try {
+        const dados = JSON.parse(texto);
+        return dados && typeof dados === 'object' && !Array.isArray(dados) ? dados : null;
+    } catch {
+        return null;
+    }
 };
 
 const buscarCadastro = async ({ aluno_id, turma_id, bimestre }) => {
@@ -107,8 +119,13 @@ export default class ImportacaoController {
     }
 
     static async confirmar(req, res) {
-        const { aluno_id, turma_id, bimestre } = req.body;
+        if (!req.file)
+            return res.status(422).json({ message: 'Envie a planilha.' });
+        const corpo = lerDados(req.body?.dados);
+        if (!corpo)
+            return res.status(422).json({ message: 'Os dados da conferência não vieram no formato esperado.' });
 
+        const { aluno_id, turma_id, bimestre } = corpo;
         const invalido = validarIdentificadores({ aluno_id, turma_id, bimestre });
         if (invalido)
             return res.status(422).json({ message: invalido });
@@ -120,7 +137,7 @@ export default class ImportacaoController {
 
             const { turma, disciplinas, simulados } = cadastro;
             const { estado, bloqueios: bloqueiosDosIds } = montarEstadoDaConfirmacao({
-                payload: req.body,
+                payload: corpo,
                 disciplinas,
                 simulados,
                 aluno_id,
@@ -141,18 +158,59 @@ export default class ImportacaoController {
                 return res.status(422).json({ message: 'A importação tem problemas que precisam ser corrigidos.', bloqueios: todos, avisos });
 
             const { operacoes, contagem } = montarOperacoes({ estado, aluno_id });
-            if (operacoes.length > 0)
-                await Simulado.bulkWrite(operacoes.map(paraObjectId));
 
-            const trocadas = (req.body.colunas ?? []).filter(({ trocada }) => trocada);
-            if (trocadas.length > 0) {
-                await MapeamentoColuna.bulkWrite(trocadas.map(({ cabecalho, turma_disciplina_id }) => ({
-                    updateOne: {
-                        filter: { turma_id: new ObjectId(turma_id), cabecalho },
-                        update: { $set: { turma_disciplina_id: new ObjectId(turma_disciplina_id) } },
-                        upsert: true,
+            // A planilha sobe antes das notas: toda importação gravada fica com o arquivo que a originou.
+            let guardada;
+            try {
+                guardada = await armazenamentoPlanilhas.guardar({ buffer: req.file.buffer, turma_id, bimestre: Number(bimestre) });
+            } catch (error) {
+                console.error('Erro ao guardar a planilha no Blob Storage:', error.message);
+                return res.status(502).json({ message: 'Não foi possível guardar a planilha. Nenhuma nota foi gravada.' });
+            }
+
+            try {
+                if (operacoes.length > 0)
+                    await Simulado.bulkWrite(operacoes.map(paraObjectId));
+
+                const trocadas = (corpo.colunas ?? []).filter(({ trocada }) => trocada);
+                if (trocadas.length > 0) {
+                    await MapeamentoColuna.bulkWrite(trocadas.map(({ cabecalho, turma_disciplina_id }) => ({
+                        updateOne: {
+                            filter: { turma_id: new ObjectId(turma_id), cabecalho },
+                            update: { $set: { turma_disciplina_id: new ObjectId(turma_disciplina_id) } },
+                            upsert: true,
+                        },
+                    })));
+                }
+            } catch (error) {
+                // As notas não foram gravadas. Só apaga o arquivo criado agora: um que já existia é de outra importação.
+                if (guardada?.novo) {
+                    try {
+                        await armazenamentoPlanilhas.apagar(guardada.nome);
+                    } catch (erroAoApagar) {
+                        console.error('Erro ao apagar a planilha do Blob Storage:', erroAoApagar.message);
+                    }
+                }
+                throw error;
+            }
+
+            // Notas e planilha já estão gravadas: uma falha só no registro não desfaz a importação.
+            try {
+                await ImportacaoNotas.create({
+                    turma_id,
+                    aluno_id,
+                    bimestre: Number(bimestre),
+                    importado_por: req.user?.id,
+                    planilha: {
+                        blob: guardada?.nome ?? null,
+                        nome_original: req.file.originalname,
+                        tamanho: req.file.size,
+                        aba: typeof corpo.aba === 'string' ? corpo.aba : null,
                     },
-                })));
+                    contagem,
+                });
+            } catch (error) {
+                console.error('Erro ao registrar a importação de notas:', error.message);
             }
 
             return res.status(200).json({ message: 'Notas importadas com sucesso', ...contagem });

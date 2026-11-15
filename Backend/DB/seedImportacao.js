@@ -6,10 +6,12 @@ import Materia from "../Models/Materia.js";
 import TurmaDisciplina from "../Models/TurmaDisciplina.js";
 import Simulado from "../Models/Simulado.js";
 import MapeamentoColuna from "../Models/MapeamentoColuna.js";
+import ImportacaoNotas from "../Models/ImportacaoNotas.js";
 import { normalizarTexto } from "../services/planilhaNotasParser.js";
 
 // Dados fictícios para testar a importação de notas por planilha.
-// ATENÇÃO: apaga usuários, turmas, matérias, disciplinas, simulados e colunas guardadas do banco local antes de inserir.
+// ATENÇÃO: apaga usuários, turmas, matérias, disciplinas, simulados, colunas guardadas e registros de importação
+// do banco local antes de inserir.
 
 // Sempre o banco local, e não o MONGODB_URI do .env: a seed apaga as coleções.
 const BANCO_LOCAL = "mongodb://127.0.0.1:27017/NotasMax";
@@ -88,6 +90,7 @@ const seedDatabase = async () => {
         await TurmaDisciplina.deleteMany({});
         await Simulado.deleteMany({});
         await MapeamentoColuna.deleteMany({});
+        await ImportacaoNotas.deleteMany({});
         console.log("✓ Coleções limpas");
 
         // ===== USUÁRIOS =====

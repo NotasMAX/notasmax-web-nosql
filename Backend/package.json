@@ -16,6 +16,8 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@azure/identity": "^4.14.1",
+    "@azure/storage-blob": "^12.34.0",
     "bcryptjs": "^3.0.3",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
@@ -33,9 +35,21 @@
   },
   "c8": {
     "all": true,
-    "include": ["**/*.js"],
-    "exclude": ["node_modules/**", "test/**", "DB/seed*.js", "coverage/**"],
-    "reporter": ["text", "lcov", "json-summary", "html"],
+    "include": [
+      "**/*.js"
+    ],
+    "exclude": [
+      "node_modules/**",
+      "test/**",
+      "DB/seed*.js",
+      "coverage/**"
+    ],
+    "reporter": [
+      "text",
+      "lcov",
+      "json-summary",
+      "html"
+    ],
     "reports-dir": "coverage"
   }
 }

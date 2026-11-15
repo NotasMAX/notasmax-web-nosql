@@ -9,12 +9,15 @@ Os números são gravados como na planilha real: o arquivo guarda ponto (`0.75`,
 ## Como testar pela tela
 
 1. Rode `npm install` nas pastas `Backend` e `Frontend`.
-2. Suba um Mongo local na porta 27017. Com Docker: `docker run -d --name notasmax-mongo -p 127.0.0.1:27017:27017 -v notasmax-mongo-data:/data/db mongo:8`.
-3. Na pasta `Backend`, rode `node DB/seedImportacao.js`. **A seed apaga usuários, turmas, matérias, disciplinas, simulados e colunas guardadas do banco `NotasMax` local.**
-4. Rode `npm start` no `Backend` e `npm run dev` no `Frontend`.
-5. Abra `http://localhost:5173` e entre com `admin@notasmax.test`, senha `admin123`.
-6. Vá em Turmas, abra a turma, clique no olho de um simulado do bimestre indicado na tabela abaixo, clique em **Importar Excel** e escolha o aluno.
-7. Envie a planilha, confira a revisão e clique em **Confirmar**.
+2. Na pasta `Backend`, copie o `.env.example` para `.env`. Sem esse arquivo, a API não sobe.
+3. Suba um Mongo local na porta 27017. Com Docker: `docker run -d --name notasmax-mongo -p 127.0.0.1:27017:27017 -v notasmax-mongo-data:/data/db mongo:8`.
+4. Na pasta `Backend`, rode `node DB/seedImportacao.js`. **A seed apaga usuários, turmas, matérias, disciplinas, simulados, colunas guardadas e registros de importação do banco `NotasMax` local.**
+5. Rode `npm start` no `Backend` e `npm run dev` no `Frontend`.
+6. Abra `http://localhost:5173` e entre com `admin@notasmax.test`, senha `admin123`.
+7. Vá em Turmas, abra a turma, clique no olho de um simulado do bimestre indicado na tabela abaixo, clique em **Importar Excel** e escolha o aluno.
+8. Envie a planilha, confira a revisão e clique em **Confirmar**.
+
+Localmente, a planilha não é guardada no Blob Storage: só o ambiente de produção guarda. O resto da importação funciona igual.
 
 Outros logins, com a mesma senha: `lourdes.prado@notasmax.test` (professor) e `lucas.santos@notasmax.test` (aluno). Só o admin chega à importação.
 

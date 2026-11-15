@@ -25,6 +25,6 @@ export const getSimuladosByTurma = (id) => somenteBimestresValidos(api.get(`/Sim
 export const atualizarConteudos = (id, payload) => api.patch(`/Simulado/AtualizarConteudos/${id}`, payload);
 export const getOneSimple = (id) => api.get(`/Simulado/Simple/${id}`);
 export const previaImportacaoNotas = (dados) => api.post('/Importacoes/Notas/Previa', dados, { headers: { 'Content-Type': 'multipart/form-data' } });
-export const confirmarImportacaoNotas = (payload) => api.post('/Importacoes/Notas/Confirmar', payload);
+export const confirmarImportacaoNotas = (dados) => api.post('/Importacoes/Notas/Confirmar', dados, { headers: { 'Content-Type': 'multipart/form-data' } });
 
 export default api;

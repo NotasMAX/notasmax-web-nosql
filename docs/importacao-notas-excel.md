@@ -1,6 +1,6 @@
 # Importação de notas por Excel: relatório da implementação
 
-Atualizado em 02/11/2026.
+Atualizado em 15/11/2026.
 
 ## Resumo
 
@@ -9,7 +9,8 @@ A importação está pronta para teste: o admin envia a planilha .xlsx de um alu
 - **Regra central:** o sistema grava só valores brutos (acertos, peso e tipo). As notas são sempre calculadas.
 - **Nota dissertativa:** sai apenas dos SIMs do tipo dissertativo. A "Nota Dissertativo" da planilha aparece na revisão só como referência e não é gravada.
 - **Ajustes:** quem revisa altera acertos, peso e tipo de cada SIM do bimestre, inclusive dos que não estão na planilha.
-- **Sem coleção nova para notas:** os resultados continuam em `Simulado.conteudos[].resultados[]`. A única coleção nova guarda a escolha de disciplina de cada coluna.
+- **Sem coleção nova para notas:** os resultados continuam em `Simulado.conteudos[].resultados[]`. As duas coleções novas guardam a escolha de disciplina de cada coluna e o registro de cada importação confirmada.
+- **Planilha guardada:** na confirmação, o arquivo enviado vai para o Azure Blob Storage, uma vez só por conteúdo. Só o ambiente de produção guarda; localmente, a importação funciona sem guardar.
 
 Faltam duas decisões, descritas em Limitações e decisões em aberto: digitar a nota calculada direto e arredondar a nota final.
 
@@ -28,14 +29,14 @@ Depois de abrir a importação:
 2. Se nenhuma aba tiver o nome do aluno e houver mais de uma aba, escolha a aba e clique de novo.
 3. Na revisão, confira a disciplina ligada a cada coluna e abra as colunas para ver os SIMs.
 4. Ajuste tipo, peso e acertos no que for preciso. As notas são recalculadas a cada alteração.
-5. Com todos os bloqueios resolvidos, clique em **Confirmar**. Se tipo ou peso mudaram, o sistema pergunta antes, porque a mudança vale para a turma inteira.
+5. Com todos os bloqueios resolvidos, clique em **Confirmar**. Se tipo ou peso mudaram, o sistema pergunta antes, porque a mudança vale para a turma inteira. O arquivo vai junto e é guardado antes das notas.
 6. A tela mostra quantas notas foram criadas, atualizadas, removidas e mantidas, e leva às notas do aluno.
 
 ```mermaid
 flowchart LR
     A["Envio: arquivo .xlsx de um aluno"] --> B["Prévia: lê a aba e valida, sem gravar"]
     B --> C["Revisão: admin ajusta e a tela recalcula"]
-    C -->|sem bloqueio| D["Confirmar: servidor valida tudo de novo"]
+    C -->|sem bloqueio| D["Confirmar: servidor valida de novo e guarda a planilha"]
     D --> E["Gravação: só o que mudou"]
     E --> F["Notas do aluno: sempre calculadas ao abrir"]
     F -->|nova importação| A
@@ -48,12 +49,15 @@ Problema de estrutura ou de bimestre para no envio; os demais bloqueios ficam na
 Dá para testar tudo com a seed e as planilhas de `docs/planilhas-teste`, que usam dados fictícios. A seed apaga os dados do banco `NotasMax` local, então não a rode em um banco que você queira manter.
 
 1. Rode `npm install` nas pastas `Backend` e `Frontend`.
-2. Suba um Mongo local na porta 27017. Com Docker: `docker run -d --name notasmax-mongo -p 127.0.0.1:27017:27017 -v notasmax-mongo-data:/data/db mongo:8`.
-3. Na pasta `Backend`, rode `node DB/seedImportacao.js`.
-4. Rode `npm start` no `Backend` e `npm run dev` no `Frontend`.
-5. Abra `http://localhost:5173` e entre com o login de admin da tabela abaixo.
-6. Vá em Turmas, abra a turma, clique no olho de um simulado do bimestre da planilha, clique em **Importar Excel** e escolha o aluno.
-7. Envie a planilha, confira a revisão e clique em **Confirmar**.
+2. Na pasta `Backend`, copie o `.env.example` para `.env`. Sem esse arquivo, a API não sobe.
+3. Suba um Mongo local na porta 27017. Com Docker: `docker run -d --name notasmax-mongo -p 127.0.0.1:27017:27017 -v notasmax-mongo-data:/data/db mongo:8`.
+4. Na pasta `Backend`, rode `node DB/seedImportacao.js`.
+5. Rode `npm start` no `Backend` e `npm run dev` no `Frontend`.
+6. Abra `http://localhost:5173` e entre com o login de admin da tabela abaixo.
+7. Vá em Turmas, abra a turma, clique no olho de um simulado do bimestre da planilha, clique em **Importar Excel** e escolha o aluno.
+8. Envie a planilha, confira a revisão e clique em **Confirmar**.
+
+Localmente, a planilha não é guardada no Blob Storage, e o registro da importação fica com `planilha.blob` nulo. Para conferir o Blob, veja "Planilha no Blob Storage", em O que é gravado.
 
 | Perfil | E-mail | Senha |
 | --- | --- | --- |
@@ -230,6 +234,8 @@ Bloqueio impede a gravação, e aviso só informa: o Confirmar da revisão fica 
 
 No envio também há mensagens sem código: "Envie a planilha.", "Envie uma planilha .xlsx.", "O arquivo passa do limite de 2 MB.", "Turma não encontrada" e "O aluno não faz parte desta turma".
 
+Na confirmação, há mais duas: "Não foi possível guardar a planilha. Nenhuma nota foi gravada.", quando o Blob Storage falha, e "Os dados da conferência não vieram no formato esperado.", quando a tela manda os dados fora do formato.
+
 **Avisos**
 
 | Código | Quando acontece |
@@ -271,7 +277,7 @@ Decimais já cadastrados em um peso não bloqueiam enquanto o peso não for alte
 
 ## O que é gravado
 
-Da planilha, só os acertos das linhas SIM entram no banco. O arquivo fica na memória durante a requisição e não é salvo em disco.
+Da planilha, só os acertos das linhas SIM entram no banco. O arquivo nunca é salvo no disco do servidor: na confirmação, ele vai inteiro para o Azure Blob Storage.
 
 | Dado | Gravado? | Onde |
 | --- | --- | --- |
@@ -279,9 +285,23 @@ Da planilha, só os acertos das linhas SIM entram no banco. O arquivo fica na me
 | Peso alterado | Sim | `Simulado.conteudos[].peso` |
 | Tipo alterado | Sim | `Simulado.tipo` |
 | Disciplina escolhida à mão para uma coluna | Sim | Coleção nova `MapeamentoColuna`, por turma e cabeçalho |
+| Registro da importação: turma, aluno, bimestre, quem importou, quando, aba, nome e tamanho do arquivo, contagens e nome do blob | Sim | Coleção nova `ImportacaoNotas` (`importacoesnotas` no banco) |
+| Arquivo da planilha, com todas as abas | Sim, em produção | Blob Storage, em `importacoes-notas/<turma>/<bimestre>/<sha256 do arquivo>.xlsx` |
 | Nota objetiva, dissertativa e final | Não | Calculadas ao abrir as telas |
 | Nota Dissertativo, Nota Objetivo, Nota final, Resultado, TOTAL e fator da planilha | Não | Servem só para comparar na revisão |
-| Arquivo da planilha | Não | Nenhum |
+
+**Planilha no Blob Storage.** A planilha vai para o container de `AZURE_STORAGE_CONTAINER_NAME`, que é o `files`.
+
+- **Quando:** na confirmação, depois das validações e antes das notas. Importação com bloqueio não guarda nada.
+- **Uma vez só por conteúdo:** o nome do arquivo é o sha256 do conteúdo. O mesmo arquivo importado para a Kate e para o Joshua vira um blob só, e os dois registros apontam para ele, cada um com a sua aba. Um arquivo editado entre as importações é outro conteúdo e é guardado de novo.
+- **Se o Blob falhar:** nenhuma nota é gravada, e a tela mostra "Não foi possível guardar a planilha. Nenhuma nota foi gravada."
+- **Se as notas falharem depois do upload:** o arquivo é apagado, mas só se foi criado naquela tentativa. Um arquivo que já existia é de outra importação e fica.
+- **Se só o registro falhar:** as notas e o arquivo ficam gravados, e o erro vai para o log do servidor.
+- **Onde vale:** só em produção (`NODE_ENV=production`, definido no `Dockerfile`), porque fora da Azure não existe identidade gerenciada.
+- **Acesso:** a API usa a identidade gerenciada da Container App, sem chave no código. O papel dela precisa permitir gravar e apagar, como o `Storage Blob Data Contributor`.
+- **Sem download:** o app não mostra nem baixa as planilhas. Cada arquivo tem as notas da turma inteira, e só quem tem acesso ao container consegue abrir.
+
+O nome original do arquivo fica só no registro, porque vem do usuário e pode ter acento ou barra. Nomes com acento chegam certos ao servidor.
 
 **Como a confirmação grava.** O servidor busca o cadastro atual, refaz as validações e compara cada célula com a nota já lançada. Depois grava com operações individuais, sem substituir a lista inteira de conteúdos:
 
@@ -303,7 +323,7 @@ A implementação fica toda no `notasmax-web-nosql`, com duas rotas novas na API
 | Rota | Recebe | Devolve |
 | --- | --- | --- |
 | `POST /Importacoes/Notas/Previa` | Formulário com `arquivo`, `aluno_id`, `turma_id`, `bimestre` e `aba` (opcional) | A aba lida, as colunas ligadas, os simulados, as linhas, os bloqueios e os avisos. Não grava nada |
-| `POST /Importacoes/Notas/Confirmar` | JSON com `aluno_id`, `turma_id`, `bimestre`, `colunas`, `linhas`, `tipos` e `pesos` | As contagens de criadas, atualizadas, removidas e sem alteração, ou 422 com os bloqueios |
+| `POST /Importacoes/Notas/Confirmar` | Formulário com `arquivo` e `dados`, um JSON com `aluno_id`, `turma_id`, `bimestre`, `aba`, `colunas`, `linhas`, `tipos` e `pesos` | As contagens de criadas, atualizadas, removidas e sem alteração; 422 com os bloqueios; ou 502 se a planilha não puder ser guardada |
 
 **Rotas novas do front.** `/Simulados/Importar/:turma/:bimestre/:aluno` e `/Simulados/Importar/:turma/:bimestre/:aluno/Confirmar`.
 
@@ -314,19 +334,21 @@ A implementação fica toda no `notasmax-web-nosql`, com duas rotas novas na API
 | `services/planilhaNotasParser.js` | Novo | Lê a aba e aplica as regras que dependem só da planilha |
 | `services/conferenciaNotas.js` | Novo | Calcula as notas, valida a revisão, liga colunas, monta a prévia e as operações de banco |
 | `Controllers/ImportacaoController.js` | Novo | Implementa as rotas de prévia e confirmação |
-| `middlewares/uploadPlanilha.js` | Novo | Recebe o arquivo na memória, com limite de 2 MB e só .xlsx |
+| `services/armazenamentoPlanilhas.js` | Novo | Guarda e apaga a planilha no Blob Storage, só em produção |
+| `middlewares/uploadPlanilha.js` | Novo | Recebe o arquivo na memória, com limite de 2 MB, só .xlsx e nome com acento |
 | `Models/MapeamentoColuna.js` | Novo | Guarda a disciplina escolhida para um cabeçalho na turma |
+| `Models/ImportacaoNotas.js` | Novo | Registra cada importação confirmada, com a aba e o nome do blob |
 | `DB/seedImportacao.js` | Novo | Cria dados fictícios de teste. Apaga o banco local antes |
 | `Models/Simulado.js` | Alterado | Índice único em `turma_id + bimestre + numero` |
-| `Routes/routes.js` | Alterado | Registra as duas rotas |
-| `package.json` | Alterado | Adiciona `exceljs` e `multer` |
+| `Routes/routes.js` | Alterado | Registra as duas rotas; a confirmação também recebe o arquivo |
+| `package.json` | Alterado | Adiciona `exceljs`, `multer`, `@azure/storage-blob` e `@azure/identity` |
 
 **Frontend**
 
 | Arquivo | Situação | O que faz |
 | --- | --- | --- |
-| `pages/ImportarNotas.jsx` | Novo | Tela de envio do arquivo e escolha da aba |
-| `pages/ConfirmarImportacaoNotas.jsx` | Novo | Tela de revisão: guarda as alterações, lista problemas e confirma |
+| `pages/ImportarNotas.jsx` | Novo | Tela de envio do arquivo e escolha da aba; passa o arquivo para a revisão |
+| `pages/ConfirmarImportacaoNotas.jsx` | Novo | Tela de revisão: guarda as alterações, lista problemas e confirma, enviando o arquivo junto |
 | `components/ConferenciaColuna.jsx` | Novo | Uma coluna da revisão, com os SIMs e as notas calculadas |
 | `utils/conferenciaNotas.js` | Novo | Cópia das regras, para recalcular a tela a cada alteração |
 | `styles/ImportacaoNotas.module.css` | Novo | Estilos das duas telas |
@@ -338,13 +360,13 @@ A implementação fica toda no `notasmax-web-nosql`, com duas rotas novas na API
 | `pages/SimuladoNotasPorMateria.jsx` | Alterado | Agrupa por disciplina, e não por matéria, para não somar duas Físicas de professores diferentes |
 | `components/NotasCard.jsx` | Alterado | Mostra "nulo" em vez de quebrar quando falta resultado |
 
-**Testes novos.** `conferencia-notas.test.js`, `importacao-controller.test.js` e `planilha-notas-parser.test.js` no backend; testes ao lado de cada tela e componente no front.
+**Testes novos.** `conferencia-notas.test.js`, `importacao-controller.test.js`, `planilha-notas-parser.test.js` e `armazenamento-planilhas.test.js` no backend; testes ao lado de cada tela e componente no front.
 
 **Planilhas de teste.** As 11 planilhas e o `LEIA-ME.md` ficam em `docs/planilhas-teste`. A seed `Backend/DB/seedImportacao.js` cria 26 usuários, 4 turmas e 72 simulados, e apaga o banco local antes.
 
 ## Testes
 
-As suítes automáticas passam por completo, e o fluxo principal foi testado no navegador com banco descartável e com a planilha original. O app mobile não foi aberto, e o CI ainda não rodou nesta branch. Resultados de 02/11/2026.
+As suítes automáticas passam por completo, e o fluxo principal foi testado no navegador com banco descartável e com a planilha original. O app mobile não foi aberto. O CI passou na branch em 03/11, antes da parte do Blob Storage. Resultados de 02/11/2026; os de 15/11 estão no fim da seção.
 
 | Verificação | Resultado | Como rodou |
 | --- | --- | --- |
@@ -361,6 +383,19 @@ As suítes automáticas passam por completo, e o fluxo principal foi testado no 
 
 A nota dissertativa fica 0,00 e a final fica igual à objetiva, até o admin marcar SIMs como dissertativos e definir os pesos. Na planilha, a Nota Dissertativo é digitada e não vem de nenhuma linha SIM, então a diferença é esperada. A revisão avisa em cada coluna. Na seed, a mesma planilha não passa: 4 colunas ficam sem disciplina, porque os professores são fictícios, e 6 células têm mais acertos que questões, porque a seed tem 2 ou 3 questões por disciplina.
 
+**Planilha no Blob Storage, em 15/11/2026.** O fluxo não foi testado no navegador nem na Azure. Só dá para conferir a gravação de verdade depois do deploy, que sai da main.
+
+| Verificação | Resultado | Como rodou |
+| --- | --- | --- |
+| Testes do backend | 220 de 220 | Node 24.19.0 local; o CI do backend usa 26.5.1 |
+| Testes do front | 201 de 201 | Node 24.19.0 local; o CI do front usa 24.21.0 |
+| Cobertura de linhas do backend | 85,12% (mínimo 80%) | Node 24.19.0 local |
+| Cobertura de linhas do front | 82,31% (mínimo 80%) | Node 24.19.0 local |
+| Gravação, reaproveitamento do mesmo arquivo e limpeza quando as notas falham | Passou | Testes automáticos, com um container falso |
+| Chamada real à biblioteca da Azure | Falhou no login, como esperado fora da Azure, sem enviar arquivo | Modo produção, no computador local |
+
+Para conferir na Azure, importe dois alunos com o mesmo arquivo, que tenha uma aba para cada um. As planilhas de teste usam os alunos da seed, então no app da Azure é preciso um arquivo com alunos, disciplinas e simulados que existam lá. Se as duas importações derem certo, a planilha foi guardada e reaproveitada, porque em produção uma falha no Blob bloqueia a importação. Para ver o arquivo em `files/importacoes-notas/`, é preciso acesso à conta de armazenamento.
+
 ## Limitações e decisões em aberto
 
 Duas decisões ainda dependem da escola ou do dono do produto. Até lá, o sistema fica como descrito na coluna do meio.
@@ -374,6 +409,7 @@ Limitações conhecidas:
 
 - **Notas da planilha:** a nota final do sistema só coincide com a da planilha quando os SIMs dissertativos e os pesos representam o que foi digitado nela.
 - **Gravação em etapas:** a confirmação não usa transação. Se o banco falhar no meio, parte pode ficar gravada; importar de novo corrige, porque compara cada valor.
+- **Planilha no Blob Storage:** não foi testada na Azure, e o app não tem download das planilhas guardadas. Se duas importações do mesmo arquivo forem confirmadas ao mesmo tempo e a primeira falhar, o arquivo pode ser apagado enquanto a segunda ainda aponta para ele. Como a importação é feita um aluno por vez, isso não deve acontecer na prática.
 - **App mobile:** foi conferido pelo código e pela rota que ele usa, sem abrir o app. Ele mostra o `resultado.nota` de cada simulado, e não a nota final nem a dissertativa.
 - **Telas antigas:** o cadastro aceita até 10 questões e a edição até 100; o aviso fala em 15 dias, mas a regra usa 16. As duas diferenças já existiam e não foram alteradas.
 - **Lista de alunos:** sem nenhuma nota no simulado, a lista continua mostrando só o aviso "ainda não foram lançadas". O botão **Importar Excel** é o caminho nesse caso.

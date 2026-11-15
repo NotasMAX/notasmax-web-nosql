@@ -65,7 +65,8 @@ export default function ImportarNotas() {
         try {
             const { data } = await previaImportacaoNotas(dados);
             if (data.podeConferir) {
-                navigate(`/Simulados/Importar/${turmaId}/${bimestre}/${alunoId}/Confirmar`, { state: { previa: data } });
+                // A planilha vai junto: na confirmação, ela é enviada de novo para ser guardada.
+                navigate(`/Simulados/Importar/${turmaId}/${bimestre}/${alunoId}/Confirmar`, { state: { previa: data, arquivo } });
                 return;
             }
             setErros(data.bloqueios.map(({ mensagem }) => mensagem));

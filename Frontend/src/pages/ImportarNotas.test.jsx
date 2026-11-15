@@ -13,7 +13,7 @@ vi.mock('../components/BimestreAtual', () => ({ default: ({ bimestre, ano }) => 
 
 function Destino() {
   const { pathname, state } = useLocation();
-  return <p>Destino: {pathname} / aba {state?.previa?.aba}</p>;
+  return <p>Destino: {pathname} / aba {state?.previa?.aba} / arquivo {state?.arquivo?.name}</p>;
 }
 
 const planilha = new File(['conteudo'], 'notas.xlsx');
@@ -86,7 +86,7 @@ describe('ImportarNotas', () => {
 
     fireEvent.click(confirmar());
 
-    expect(await screen.findByText('Destino: /Simulados/Importar/t1/2/a1/Confirmar / aba Maria Silva')).toBeInTheDocument();
+    expect(await screen.findByText('Destino: /Simulados/Importar/t1/2/a1/Confirmar / aba Maria Silva / arquivo notas.xlsx')).toBeInTheDocument();
     const dados = previaImportacaoNotas.mock.calls[0][0];
     expect(dados.get('arquivo').name).toBe('notas.xlsx');
     expect(dados.get('aluno_id')).toBe('a1');
