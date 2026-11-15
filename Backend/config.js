@@ -1,4 +1,6 @@
 const DEFAULT_PORT = 5000;
+const DEFAULT_BLOB_STORAGE_ENDPOINT = 'https://nmacafreecheck.blob.core.windows.net';
+const DEFAULT_BLOB_STORAGE_CONTAINER_NAME = 'files';
 
 function requiredValue(env, name) {
   const value = env[name]?.trim();
@@ -32,6 +34,27 @@ function parseOriginList(value) {
   }))];
 }
 
+export function getBlobStorageConfig(env = process.env) {
+  const endpoint = env.AZURE_STORAGE_BLOB_ENDPOINT?.trim() || DEFAULT_BLOB_STORAGE_ENDPOINT;
+  const containerName = env.AZURE_STORAGE_CONTAINER_NAME?.trim() || DEFAULT_BLOB_STORAGE_CONTAINER_NAME;
+
+  let parsedEndpoint;
+  try {
+    parsedEndpoint = new URL(endpoint);
+  } catch {
+    throw new Error('Invalid configuration: AZURE_STORAGE_BLOB_ENDPOINT must be a valid HTTPS endpoint');
+  }
+
+  if (parsedEndpoint.protocol !== 'https:' || parsedEndpoint.pathname !== '/' || parsedEndpoint.search || parsedEndpoint.hash || parsedEndpoint.username || parsedEndpoint.password) {
+    throw new Error('Invalid configuration: AZURE_STORAGE_BLOB_ENDPOINT must be a root HTTPS endpoint');
+  }
+
+  return {
+    endpoint: parsedEndpoint.origin,
+    containerName,
+  };
+}
+
 export function loadRuntimeConfig(env = process.env) {
   const mongoUri = requiredValue(env, 'MONGODB_URI');
   if (!mongoUri.startsWith('mongodb://') && !mongoUri.startsWith('mongodb+srv://')) {
@@ -59,6 +82,7 @@ export function loadRuntimeConfig(env = process.env) {
     jwtSecret,
     port,
     corsOrigins: parseOriginList(env.CORS_ORIGINS),
+    blobStorage: getBlobStorageConfig(env),
     cookie: {
       httpOnly: true,
       secure: cookieSecure,
