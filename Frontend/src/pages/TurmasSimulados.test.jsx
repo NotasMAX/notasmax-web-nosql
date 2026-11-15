@@ -5,7 +5,10 @@ import TurmasSimulados from './TurmasSimulados';
 import { getByTurma } from '../api/simuladoApi';
 import { getOne } from '../api/turmasapi';
 
-vi.mock('../api/simuladoApi.js', () => ({ getByTurma: vi.fn(), getAll: vi.fn() }));
+vi.mock('../api/simuladoApi.js', async (importOriginal) => {
+  const actual = await importOriginal();
+  return { ...actual, getByTurma: vi.fn(), getAll: vi.fn() };
+});
 vi.mock('../api/turmasapi.js', () => ({ getOne: vi.fn() }));
 vi.mock('../components/BimestreSections.jsx', () => ({ default: ({ simulados }) => <div>{simulados.map((s) => <p key={s._id}>Simulado {s.numero} - bimestre {s.bimestre}</p>)}</div> }));
 vi.mock('primereact/toast', () => ({ Toast: () => null }));

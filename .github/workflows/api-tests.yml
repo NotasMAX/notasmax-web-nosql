@@ -30,7 +30,7 @@ jobs:
           cache-dependency-path: Frontend/package-lock.json
 
       - name: Install locked dependencies
-        run: npm ci
+        run: npm ci --no-audit
 
       - name: Run frontend tests and coverage gate
         run: npm run test:coverage
@@ -61,7 +61,7 @@ jobs:
           cache-dependency-path: Backend/package-lock.json
 
       - name: Install locked dependencies
-        run: npm ci
+        run: npm ci --no-audit
 
       - name: Run API tests and coverage gate
         run: npm run test:coverage
@@ -73,3 +73,63 @@ jobs:
           name: api-coverage
           path: Backend/coverage/
           if-no-files-found: ignore
+
+  publish-web-image:
+    name: Publish combined frontend and API image to GHCR
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [web-tests, api-tests]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image_ref: ${{ steps.build.outputs.image_ref }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Build combined application image
+        id: build
+        env:
+          IMAGE_NAME: ghcr.io/${{ github.repository }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          image_name="${IMAGE_NAME,,}"
+          printf '%s' "$GHCR_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+          docker build --file Backend/Dockerfile --tag "$image_name:$GITHUB_SHA" .
+          docker push "$image_name:$GITHUB_SHA"
+          echo "image_ref=$image_name:$GITHUB_SHA" >> "$GITHUB_OUTPUT"
+
+  update-container-app:
+    name: Update existing Container App with combined application image
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [web-tests, api-tests, publish-web-image]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Sign in to Azure with OIDC
+        uses: azure/login@7ddb5af1ef8758cf1353cf3b42f940aee27ba21c # v3.0.2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Update existing Container App image
+        env:
+          AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+          AZURE_CONTAINER_APP_NAME: ${{ vars.AZURE_CONTAINER_APP_NAME }}
+          IMAGE_REF: ${{ needs.publish-web-image.outputs.image_ref }}
+        run: |
+          set -euo pipefail
+          test -n "$AZURE_RESOURCE_GROUP" || { echo 'AZURE_RESOURCE_GROUP variable is required.' >&2; exit 1; }
+          test -n "$AZURE_CONTAINER_APP_NAME" || { echo 'AZURE_CONTAINER_APP_NAME variable is required.' >&2; exit 1; }
+          az containerapp update \
+            --name "$AZURE_CONTAINER_APP_NAME" \
+            --resource-group "$AZURE_RESOURCE_GROUP" \
+            --image "$IMAGE_REF"

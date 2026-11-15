@@ -4,6 +4,10 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { response } from './helpers.js';
 
+process.env.JWT_SECRET ??= 'backend-test-jwt-secret';
+process.env.COOKIE_SECURE ??= 'false';
+process.env.COOKIE_SAME_SITE ??= 'lax';
+
 const originalEmailUser = process.env.EMAIL_USER;
 const originalEmailPass = process.env.EMAIL_PASS;
 before(async () => {
@@ -40,7 +44,7 @@ test('login returns an authenticated user and sets the JWT cookie using a fake u
   await login({ body: { email: user.email, senha: 'synthetic-password' } }, res);
   assert.equal(res.statusCode, 200);
   assert.equal(res.body.usuario.email, user.email);
-  assert.equal(jwt.verify(res.body.token, process.env.JWT_SECRET || 'chave-secreta-super-segura').id, user._id);
+  assert.equal(jwt.verify(res.body.token, process.env.JWT_SECRET).id, user._id);
   assert.equal(res.cookieValue.name, 'jwt');
 });
 

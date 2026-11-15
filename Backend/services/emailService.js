@@ -30,9 +30,7 @@ if (EMAIL_USER && EMAIL_PASS) {
 export const sendPasswordResetEmail = async (toEmail, token, transport = transporter) => {
     // Se não houver credenciais de email configuradas, apenas registrar no console (desenvolvimento)
     if (!transport) {
-        console.log(`[DESENVOLVIMENTO] Email de redefinição de senha para ${toEmail}`);
-        console.log(`Token de redefinição: ${token}`);
-        console.log(`Link: ${FRONTEND_URL}/reset?token=${token}`);
+        console.warn('Password reset email was not sent because email transport is not configured.');
         return;
     }
 
@@ -330,8 +328,7 @@ export const sendPasswordResetEmail = async (toEmail, token, transport = transpo
  */
 export const sendPasswordResetEmailMobile = async (toEmail, token, transport = transporter) => {
     if (!transport) {
-        console.log(`[DESENVOLVIMENTO] Email de redefinicao mobile para ${toEmail}`);
-        console.log(`Codigo de redefinicao (mobile): ${token}`);
+        console.warn('Mobile password reset email was not sent because email transport is not configured.');
         return;
     }
 

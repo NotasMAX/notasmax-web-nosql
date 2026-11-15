@@ -1,4 +1,4 @@
-import "./conn.js";
+import { connectDatabase } from "./conn.js";
 import bcrypt from "bcryptjs";
 import Usuario from "../Models/Usuario.js";
 import Turma from "../Models/Turma.js";
@@ -11,6 +11,8 @@ import { normalizarTexto } from "../services/planilhaNotasParser.js";
 // Dados fictícios para testar a importação de notas por planilha.
 // ATENÇÃO: apaga usuários, turmas, matérias, disciplinas, simulados e colunas guardadas do banco local antes de inserir.
 
+// Sempre o banco local, e não o MONGODB_URI do .env: a seed apaga as coleções.
+const BANCO_LOCAL = "mongodb://127.0.0.1:27017/NotasMax";
 const SENHA = "admin123";
 const UM_DIA = 24 * 60 * 60 * 1000;
 const SIMULADOS_POR_BIMESTRE = 6;
@@ -78,6 +80,7 @@ const gerarResultados = (alunos, numero, indiceDisciplina, quantidade_questoes) 
 const seedDatabase = async () => {
     try {
         console.log("🌱 Iniciando seed da importação...");
+        await connectDatabase(BANCO_LOCAL);
 
         await Usuario.deleteMany({});
         await Turma.deleteMany({});
