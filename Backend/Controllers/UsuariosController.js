@@ -108,7 +108,7 @@ export default class UsuariosController {
             }
 
             const usuario = await Usuario.findById(id).select(
-                "nome email telefone_contato nome_responsavel telefone_responsavel tipo_usuario"
+                "nome email telefone_contato nome_responsavel telefone_responsavel tipo_usuario foto"
             );
 
 
@@ -116,8 +116,9 @@ export default class UsuariosController {
                 return res.status(404).json({ error: "Usuário não encontrado." });
             }
 
-            const { tipo_usuario, ...resto } = usuario.toObject();
-            return res.status(200).json(resto);
+            // Da foto, as telas só precisam saber se ela existe e quando mudou.
+            const { tipo_usuario, foto, ...resto } = usuario.toObject();
+            return res.status(200).json({ ...resto, foto_atualizada_em: foto?.atualizada_em ?? null });
 
         } catch (error) {
             return res.status(500).json({ error: "Erro ao buscar o usuário." });
@@ -137,7 +138,8 @@ export default class UsuariosController {
                 return res.status(404).json({ error: "Usuário não encontrado." });
             }
 
-            const updates = { ...req.body };
+            // A foto só muda pela rota de foto, que confere o arquivo e guarda no Blob Storage.
+            const { foto, foto_atualizada_em, ...updates } = req.body ?? {};
 
             if (updates.senha) {
                 updates.senha = await bcrypt.hash(updates.senha, 12);

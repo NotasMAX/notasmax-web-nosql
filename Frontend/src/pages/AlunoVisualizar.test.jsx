@@ -17,8 +17,15 @@ describe('AlunoVisualizar', () => {
     expect(await screen.findByText('Bia')).toBeInTheDocument();
     expect(screen.getByText('bia@example.test')).toBeInTheDocument();
     expect(screen.getAllByText('-')).toHaveLength(2);
+    expect(screen.queryByRole('img')).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Editar' }));
     expect(await screen.findByText('Destino: /Alunos/Editar/a2')).toBeInTheDocument();
+  });
+
+  it('mostra a foto do aluno quando ela existe', async () => {
+    getUsuario.mockResolvedValue({ data: { nome: 'Bia', email: 'bia@example.test', telefone_contato: '123', foto_atualizada_em: '2026-11-15T12:00:00.000Z' } });
+    mount();
+    expect(await screen.findByRole('img', { name: 'Foto de Bia' })).toHaveAttribute('src', 'http://localhost:5000/NotasMax/Usuarios/a2/Foto?v=2026-11-15T12:00:00.000Z');
   });
 
   it('apresenta falha de carregamento', async () => {

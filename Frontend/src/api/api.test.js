@@ -158,4 +158,17 @@ describe('usuario API', () => {
     expect(api.get).toHaveBeenNthCalledWith(6, '/Usuarios/Buscar/Professores?text=jo%C3%A3o%40example.test');
     expect(api.post).toHaveBeenNthCalledWith(3, '/Usuarios/CadastrarAluno', data);
   });
+
+  it('asks whether photos can be sent and sends the photo as a form', () => {
+    const foto = new File(['foto'], 'foto.png', { type: 'image/png' });
+
+    usuarios.getDisponibilidadeFotos();
+    usuarios.enviarFotoUsuario('u 1', foto);
+
+    expect(api.get).toHaveBeenCalledWith('/Usuarios/Fotos/Disponibilidade');
+    const [url, dados, opcoes] = api.put.mock.calls[0];
+    expect(url).toBe('/Usuarios/u%201/Foto');
+    expect(dados.get('foto')).toBe(foto);
+    expect(opcoes).toEqual({ headers: { 'Content-Type': 'multipart/form-data' } });
+  });
 });

@@ -6,7 +6,9 @@ import MateriasController from "../Controllers/MateriasController.js";
 import { authenticateToken, authorizeAdmin, authorizeProfessor } from "../middlewares/authMiddleware.js";
 import SimuladosController from '../Controllers/SimuladosController.js';
 import ImportacaoController from '../Controllers/ImportacaoController.js';
+import FotosPerfilController from '../Controllers/FotosPerfilController.js';
 import { receberPlanilha } from '../middlewares/uploadPlanilha.js';
+import { receberFoto } from '../middlewares/uploadFoto.js';
 
 
 const routes = Router();
@@ -34,6 +36,9 @@ routes.post("/Usuarios/Aluno", authenticateToken, authorizeAdmin, UsuariosContro
 routes.get("/Usuarios/Buscar/Alunos", authenticateToken, authorizeAdmin, UsuariosController.getAlunoByNameOrEmail);
 routes.get("/Usuarios/Buscar/Professores", authenticateToken, authorizeAdmin, UsuariosController.getProfessorByNameOrEmail);
 routes.get("/Usuarios/:id", authenticateToken, authorizeAdmin, UsuariosController.getOne);
+routes.get("/Usuarios/Fotos/Disponibilidade", authenticateToken, authorizeAdmin, FotosPerfilController.disponibilidade);
+routes.put("/Usuarios/:id/Foto", authenticateToken, authorizeAdmin, receberFoto, FotosPerfilController.enviar);
+routes.get("/Usuarios/:id/Foto", authenticateToken, FotosPerfilController.abrir);
 
 routes.post("/Materias/Cadastrar", authenticateToken, authorizeAdmin, MateriasController.criarMateria);
 routes.get("/Materias", authenticateToken, authorizeAdmin, MateriasController.listarMaterias);

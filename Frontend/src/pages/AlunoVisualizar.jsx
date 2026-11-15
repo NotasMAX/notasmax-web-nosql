@@ -1,7 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getUsuario } from '../api/usuariosapi';
+import FotoPerfil from '../components/FotoPerfil';
+import { fotoUsuarioUrl } from '../utils/fotoPerfil';
 import Style from '../styles/AlunoForm.module.css';
+import StyleFoto from '../styles/FotoPerfil.module.css';
 
 export default function AlunoVisualizar() {
     const { id } = useParams();
@@ -41,6 +44,11 @@ export default function AlunoVisualizar() {
             <h2 className={Style.pageTitle}>Informações Aluno</h2>
 
             <div className={Style.form}>
+                {/* Foto */}
+                <div className={StyleFoto.blocoFoto}>
+                    <FotoPerfil src={fotoUsuarioUrl(id, aluno.foto_atualizada_em)} alt={`Foto de ${aluno.nome}`} tipoUsuario="aluno" />
+                </div>
+
                 {/* Nome Completo */}
                 <div className={Style.formGroup}>
                     <label className={Style.formLabel}>Nome Completo</label>
