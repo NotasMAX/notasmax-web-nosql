@@ -16,6 +16,14 @@ export const getDesempenhoAluno = (aluno_id, ano, turmaId, bimestre) =>
 export const getUsuario = (id) => api.get(`/Usuarios/Detalhes/${id}`);
 export const updateUsuario = (id, data) => api.put(`/Usuarios/Editar/${id}`, data);
 
+// Fotos de perfil: o servidor só guarda fotos no ambiente da Azure
+export const getDisponibilidadeFotos = () => api.get("/Usuarios/Fotos/Disponibilidade");
+export const enviarFotoUsuario = (id, foto) => {
+  const dados = new FormData();
+  dados.append("foto", foto);
+  return api.put(`/Usuarios/${encodeURIComponent(id)}/Foto`, dados, { headers: { "Content-Type": "multipart/form-data" } });
+};
+
 // Endpoints de Busca
 export const buscarAlunosPorNomeOuEmail = (text) => api.get(`/Usuarios/Buscar/Alunos?text=${encodeURIComponent(text)}`);
 export const buscarProfessoresPorNomeOuEmail = (text) => api.get(`/Usuarios/Buscar/Professores?text=${encodeURIComponent(text)}`);

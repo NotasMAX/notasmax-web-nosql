@@ -58,8 +58,25 @@ describe('useToast', () => {
       expect(sessionStorage.getItem('toastMessage')).toBe('Tudo certo');
       expect(sessionStorage.getItem('toastSeverity')).toBe('success');
       result.current.showErrorOnRedirect('Falhou');
+      expect(sessionStorage.getItem('toastMessage')).toBe('Falhou');
+      expect(sessionStorage.getItem('toastSeverity')).toBe('error');
+      result.current.showWarnOnRedirect('Foto não salva');
     });
-    expect(sessionStorage.getItem('toastMessage')).toBe('Falhou');
-    expect(sessionStorage.getItem('toastSeverity')).toBe('error');
+    expect(sessionStorage.getItem('toastMessage')).toBe('Foto não salva');
+    expect(sessionStorage.getItem('toastSeverity')).toBe('warn');
+  });
+
+  it.each([
+    ['warn', 'Atenção'],
+    ['info', 'Informação'],
+    ['error', 'Erro'],
+    ['desconhecida', 'Erro'],
+  ])('shows a pending %s toast with its own title', (severity, summary) => {
+    sessionStorage.setItem('toastMessage', 'Mensagem');
+    sessionStorage.setItem('toastSeverity', severity);
+    const { result } = renderHook(() => useToast());
+    act(() => { result.current.toast.current = toast; });
+    act(() => vi.advanceTimersByTime(100));
+    expect(toast.show).toHaveBeenCalledWith({ severity, summary, detail: 'Mensagem', life: 3000 });
   });
 });

@@ -1,0 +1,190 @@
+.descricao {
+    @apply text-xl font-medium leading-[1.5] text-[#404040];
+}
+
+.descricaoGrande {
+    @apply text-2xl font-medium leading-[1.5] text-[#404040];
+}
+
+.infoAluno {
+    @apply flex flex-wrap gap-x-[23px] text-2xl leading-[1.5] text-[#404040];
+}
+
+.areaArquivo {
+    @apply flex h-[372px] w-full cursor-pointer flex-col items-center justify-center rounded-[29px] border border-[#d9d9d9] text-center transition;
+}
+
+.areaArquivoAtiva {
+    @apply border-[#1c86eb] bg-blue-50;
+}
+
+.iconeImportar {
+    @apply flex h-[125px] w-[125px] items-center justify-center;
+}
+
+.iconeArquivo {
+    @apply flex h-[118px] w-[118px] items-center justify-center;
+}
+
+.textoArquivo {
+    @apply text-2xl font-medium leading-[1.5] text-[#404040];
+}
+
+.textoArquivoSecundario {
+    @apply text-2xl leading-[1.5] text-[#8c8c8c];
+}
+
+.acoes {
+    @apply flex items-center justify-end gap-[10px];
+}
+
+.botao {
+    @apply flex h-[49px] cursor-pointer items-center justify-center rounded-[7px] border border-[#d9d9d9] px-[21px] text-xl font-medium leading-[1.5];
+}
+
+.botaoSecundario {
+    composes: botao;
+    @apply bg-[#eaeaea] text-[#404040];
+}
+
+.botaoPrimario {
+    composes: botao;
+    @apply bg-[#1c86eb] text-white transition hover:bg-[#50aaff];
+}
+
+.botaoPrimario:disabled {
+    @apply cursor-not-allowed bg-[#96ccff];
+}
+
+.seletorAba {
+    @apply flex flex-col gap-1 text-xl font-medium text-[#404040];
+}
+
+.campoSelecao {
+    @apply h-[42px] w-full rounded-lg border border-[#8c8c8c] bg-white px-2 text-base font-medium text-[#404040];
+}
+
+.painelBloqueios {
+    @apply rounded-lg border border-red-300 bg-red-50 p-3 text-red-800;
+}
+
+.painelAvisos {
+    @apply rounded-lg border border-amber-300 bg-amber-50 p-3 text-amber-900;
+}
+
+.painelSucesso {
+    @apply rounded-lg border border-green-300 bg-green-50 p-3 text-green-900;
+}
+
+.painelTitulo {
+    @apply font-semibold;
+}
+
+.painelLista {
+    @apply mt-1 max-h-48 list-disc overflow-y-auto pl-5 text-sm;
+}
+
+.linha {
+    @apply relative grid min-h-[52px] w-full items-center rounded-lg border border-[#d9d9d9] bg-white px-[10px] py-[3px];
+    box-shadow: 0 1px 4px 0 rgba(12, 12, 13, 0.05), inset 0 4px 4px -1px rgba(12, 12, 13, 0.05);
+}
+
+.linhaDestaque {
+    composes: linha;
+    @apply bg-[#f9f9f9];
+}
+
+.cabecalhoTabela {
+    composes: linhaDestaque;
+    @apply min-h-[70px];
+}
+
+.colunasResumo {
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1.4fr) 220px;
+    @apply gap-3;
+}
+
+.colunasTabela {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) 80px;
+    @apply gap-x-4;
+}
+
+.colunasTotal {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.tituloColuna {
+    @apply text-xl font-medium leading-[1.5] text-black;
+}
+
+.textoColuna {
+    @apply text-xl font-medium leading-[1.5] text-[#404040];
+}
+
+.textoResultado {
+    @apply text-xl font-medium leading-[1.5] text-black;
+}
+
+.textoInvalido {
+    @apply text-xl font-medium leading-[1.5] text-red-700;
+}
+
+.dataSimulado {
+    @apply ml-2 text-sm font-normal text-gray-500;
+}
+
+.botaoCabecalho {
+    @apply flex cursor-pointer items-center gap-2 text-left text-xl font-medium leading-[1.5] text-[#404040];
+}
+
+.setaFechada {
+    @apply h-5 w-5 -rotate-90 fill-[#404040] transition;
+}
+
+.setaAberta {
+    @apply h-5 w-5 fill-[#404040] transition;
+}
+
+.statusOk {
+    @apply justify-self-start rounded-full bg-green-100 px-3 py-1 text-sm font-medium text-green-800;
+}
+
+.statusAviso {
+    @apply justify-self-start rounded-full bg-amber-100 px-3 py-1 text-sm font-medium text-amber-900;
+}
+
+.statusBloqueio {
+    @apply justify-self-start rounded-full bg-red-100 px-3 py-1 text-sm font-medium text-red-800;
+}
+
+.corpoColuna {
+    @apply flex flex-col gap-[10px] px-[7px] py-[10px];
+}
+
+.tituloDisciplina {
+    @apply text-[32px] leading-[1.5] text-[#404040];
+}
+
+.campoPeso {
+    @apply h-[42px] w-full max-w-[245px] rounded-lg border border-[#8c8c8c] bg-white px-2 text-xl font-medium text-black disabled:bg-gray-100;
+}
+
+.campoResultado {
+    @apply flex items-center gap-2 text-xl font-medium text-black;
+}
+
+.campoAcertos {
+    @apply h-[42px] w-24 rounded-lg border border-[#8c8c8c] bg-white px-2 text-xl font-medium text-black;
+}
+
+.campoTipo {
+    @apply h-[42px] w-full max-w-[220px] rounded-lg border border-[#8c8c8c] bg-white px-2 text-xl font-medium text-[#404040];
+}
+
+.botaoEditar {
+    @apply flex h-[46.681px] w-[47.654px] cursor-pointer items-center justify-center justify-self-center rounded-[11.67px] border border-[#e7eae9] bg-[#adffa6] transition hover:bg-[#8cf084];
+}
+
+.valorPlanilha {
+    @apply ml-3 text-sm font-normal text-gray-500;
+}

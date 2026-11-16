@@ -72,7 +72,7 @@ export default function SimuladoNotasPorMateria() {
         if (conteudo.turma_disciplina) {
           materiasSet.add(
             JSON.stringify({
-              id: conteudo.turma_disciplina.materia_id,
+              id: conteudo.turma_disciplina._id,
               nome: conteudo.turma_disciplina.materia,
               professor: conteudo.turma_disciplina.professor || "N/A",
             })
@@ -96,7 +96,7 @@ export default function SimuladoNotasPorMateria() {
           simulado.conteudos?.filter(
             (conteudo) =>
               conteudo.resultado?.aluno_id === alunoId &&
-              conteudo.turma_disciplina.materia_id === materiaSelecionada
+              conteudo.turma_disciplina._id === materiaSelecionada
           ) || [];
 
         const somaNotas = conteudosDoAluno.reduce((acc, conteudo) => {
@@ -118,7 +118,7 @@ export default function SimuladoNotasPorMateria() {
           simulado.conteudos?.filter(
             (conteudo) =>
               conteudo.resultado?.aluno_id === alunoId &&
-              conteudo.turma_disciplina.materia_id === materiaSelecionada
+              conteudo.turma_disciplina._id === materiaSelecionada
           ) || [];
 
         const somaNotas = conteudosDoAluno.reduce((acc, conteudo) => {
@@ -143,7 +143,7 @@ export default function SimuladoNotasPorMateria() {
       const conteudosDaMateria =
         simulado.conteudos?.filter(
           (conteudo) =>
-            conteudo.turma_disciplina?.materia_id === materiaSelecionada &&
+            conteudo.turma_disciplina?._id === materiaSelecionada &&
             (conteudo.resultado?.aluno_id === alunoId ||
               conteudo.resultados?.some((r) => r.aluno === alunoId))
         ) || [];
@@ -163,7 +163,7 @@ export default function SimuladoNotasPorMateria() {
       const conteudosDaMateria =
         simulado.conteudos?.filter(
           (conteudo) =>
-            conteudo.turma_disciplina?.materia_id === materiaSelecionada &&
+            conteudo.turma_disciplina?._id === materiaSelecionada &&
             (conteudo.resultado?.aluno_id === alunoId ||
               conteudo.resultados?.some((r) => r.aluno === alunoId))
         ) || [];
@@ -289,7 +289,7 @@ export default function SimuladoNotasPorMateria() {
                   (conteudo) =>
                     (conteudo.resultado?.aluno_id === alunoId ||
                       conteudo.resultados?.some((r) => r.aluno === alunoId)) &&
-                    conteudo.turma_disciplina.materia_id === materiaSelecionada
+                    conteudo.turma_disciplina._id === materiaSelecionada
                 ) || [];
 
               return conteudosDoAluno.map((conteudo, index) => (

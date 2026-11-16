@@ -70,5 +70,7 @@ const SimuladoSchema = new Schema({
     conteudos: [ConteudoSchema],
 }, { timestamps: true, strict: true });
 
+SimuladoSchema.index({ turma_id: 1, bimestre: 1, numero: 1 }, { unique: true });
+
 const Simulado = mongoose.model("Simulados", SimuladoSchema);
 export default Simulado;

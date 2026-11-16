@@ -26,3 +26,6 @@ dist-ssr
 *.sw?
 
 .env
+
+# Arquivos temporários do Word e do Excel
+~$*

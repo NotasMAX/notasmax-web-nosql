@@ -10,7 +10,7 @@ vi.mock('../api/usuariosapi', () => ({ getUsuario: vi.fn() }));
 vi.mock('../components/BimestreAtual', () => ({ default: ({ bimestre, ano }) => <p>Período {bimestre}/{ano}</p> }));
 vi.mock('../components/NotasSimuladosCard', () => ({ default: ({ conteudo, simulado }) => <p>Nota do simulado {simulado.numero}: {conteudo.resultado.acertos}</p> }));
 function Destination() { return <p>Destino: {useLocation().pathname}</p>; }
-const simulados = [{ _id: 's1', bimestre: 2, numero: 1, tipo: 'objetivo', turma: { ano: 2026, _id: 't1' }, conteudos: [{ _id: 'c1', resultado: { aluno_id: 'a1', acertos: 8 }, quantidade_questoes: 10, peso: 50, turma_disciplina: { materia_id: 'm1', materia: 'Matemática', professor: 'Prof. A' } }] }];
+const simulados = [{ _id: 's1', bimestre: 2, numero: 1, tipo: 'objetivo', turma: { ano: 2026, _id: 't1' }, conteudos: [{ _id: 'c1', resultado: { aluno_id: 'a1', acertos: 8 }, quantidade_questoes: 10, peso: 50, turma_disciplina: { _id: 'td1', materia_id: 'm1', materia: 'Matemática', professor: 'Prof. A' } }] }];
 
 describe('SimuladoNotasPorMateria', () => {
   beforeEach(() => vi.clearAllMocks());
@@ -26,6 +26,19 @@ describe('SimuladoNotasPorMateria', () => {
     expect(screen.getByText('8')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /Voltar/ }));
     expect(await screen.findByText('Destino: /Turmas/Simulado/Aluno/s1')).toBeInTheDocument();
+  });
+
+  it('separa duas frentes da mesma matéria, com professores diferentes', async () => {
+    const frente = (_id, professor, acertos) => ({ _id: `c-${_id}`, resultado: { aluno_id: 'a1', acertos }, quantidade_questoes: 10, peso: 50, turma_disciplina: { _id, materia_id: 'm1', materia: 'Física', professor } });
+    getByAlunoAndBimestre.mockResolvedValue({ data: { simulados: [{ ...simulados[0], conteudos: [frente('td1', 'Prof. A', 8), frente('td2', 'Prof. B', 2)] }] } });
+    getUsuario.mockResolvedValue({ data: { nome: 'Ana' } });
+    render(<MemoryRouter initialEntries={['/Simulados/Notas/Materia/s1/2/a1']}><Routes><Route path="/Simulados/Notas/Materia/:simuladoIdParams/:bimestre/:alunoId" element={<SimuladoNotasPorMateria />} /></Routes></MemoryRouter>);
+    expect(await screen.findByText('Nota do simulado 1: 8')).toBeInTheDocument();
+    expect(screen.queryByText('Nota do simulado 1: 2')).not.toBeInTheDocument();
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'td2' } });
+    expect(await screen.findByText('Nota do simulado 1: 2')).toBeInTheDocument();
+    expect(screen.queryByText('Nota do simulado 1: 8')).not.toBeInTheDocument();
+    expect(screen.getAllByText('1,00')).toHaveLength(2);
   });
 
   it('mostra estado de erro se a consulta de notas falhar', async () => {

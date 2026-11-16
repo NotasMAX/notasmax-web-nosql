@@ -15,7 +15,13 @@ const usuarioSchema = new Schema({
   telefone_responsavel: { type: String },
   nome_responsavel: { type: String, trim: true },
   resetToken: { type: String, select: false, default: null },
-  resetTokenExpiry: { type: Date, select: false, default: null }, 
+  resetTokenExpiry: { type: Date, select: false, default: null },
+  // Foto de perfil, guardada no Blob Storage em fotos-perfil/<_id>. Sem atualizada_em, o usuário não tem foto.
+  foto: {
+    tipo: { type: String, enum: ["image/jpeg", "image/png"] },
+    tamanho: { type: Number },
+    atualizada_em: { type: Date },
+  },
 }, {
   timestamps: true,
   strict: true
