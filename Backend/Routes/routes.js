@@ -9,6 +9,7 @@ import ImportacaoController from '../Controllers/ImportacaoController.js';
 import FotosPerfilController from '../Controllers/FotosPerfilController.js';
 import { receberPlanilha } from '../middlewares/uploadPlanilha.js';
 import { receberFoto } from '../middlewares/uploadFoto.js';
+import IAController from "../Controllers/IAController.js";
 
 
 const routes = Router();
@@ -56,6 +57,8 @@ routes.patch('/Simulado/Editar/:id', authenticateToken, authorizeAdmin, Simulado
 routes.get('/Simulados/Turma/:id', authenticateToken, authorizeAdmin, SimuladosController.getSimuladosByTurma);
 routes.patch('/Simulado/AtualizarConteudos/:id', authenticateToken, authorizeAdmin, SimuladosController.atualizarConteudos);
 routes.get('/Simulado/Simple/:id', authenticateToken, authorizeAdmin, SimuladosController.getOneSimple);
+routes.get("/IA/Alunos/Atencao", authenticateToken, authorizeAdmin, IAController.listarAlunosEmAtencao);
+routes.post("/IA/Alunos/Atencao/Sugestoes", authenticateToken, authorizeAdmin, IAController.sugerirAcoesAluno);
 
 // Metodos mobile
 routes.post('/Simulado/:simuladoId/Disciplina/:disciplinaId/SalvarNotas', SimuladosController.salvarNotas);
