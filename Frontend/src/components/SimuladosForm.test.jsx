@@ -79,7 +79,9 @@ describe('SimuladosForm', () => {
     ['data_realizacao', '', 'A data de realização é obrigatória.'],
   ])('blocks submission when %s is missing', async (field, value, expectedMessage) => {
     const onSubmit = vi.fn();
-    getAllTurmas.mockResolvedValue({ data: { turmas: [] } });
+    getAllTurmas.mockResolvedValue({
+      data: { turmas: [{ _id: 'turma-1', ano: 2026, serie: 3 }] }
+    });
     const initialData = {
       numero: 2,
       tipo: 'objetivo',
@@ -91,7 +93,10 @@ describe('SimuladosForm', () => {
     };
     render(<MemoryRouter><SimuladosForm initialData={initialData} onSubmit={onSubmit} /></MemoryRouter>);
 
-    await waitFor(() => expect(getByTurma).toHaveBeenCalledWith('turma-1'));
+    await waitFor(() => expect(screen.getByRole('option', { name: '2026 - 3º EM' })).toBeInTheDocument());
+    if (field !== 'bimestre') {
+      await waitFor(() => expect(getByTurma).toHaveBeenCalledWith('turma-1'));
+    }
     await new Promise((resolve) => setTimeout(resolve, 0));
     fireEvent.click(screen.getByRole('button', { name: 'Cadastrar Simulado' }));
 
