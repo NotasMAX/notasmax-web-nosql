@@ -4,6 +4,49 @@ import './TurmasController.js';
 import { Types } from 'mongoose';
 import TurmasController from './TurmasController.js';
 
+async function validarPesosDoBimestre({ turma_id, bimestre, conteudos, excluirSimuladoId }) {
+    const filtro = { turma_id, bimestre };
+    if (excluirSimuladoId) {
+        filtro._id = { $ne: excluirSimuladoId };
+    }
+
+    const simuladosDoBimestre = await Simulado.find(filtro)
+        .select("conteudos.turma_disciplina_id conteudos.peso")
+        .lean();
+    const pesosUsados = new Map();
+
+    simuladosDoBimestre.forEach((simulado) => {
+        (simulado.conteudos || []).forEach((conteudo) => {
+            const disciplinaId = String(conteudo.turma_disciplina_id);
+            pesosUsados.set(
+                disciplinaId,
+                (pesosUsados.get(disciplinaId) || 0) + Number(conteudo.peso ?? 1)
+            );
+        });
+    });
+
+    for (const conteudo of conteudos) {
+        const disciplinaId = String(conteudo.turma_disciplina_id);
+        const pesoAtual = Number(conteudo.peso ?? 1);
+        const pesoUsado = pesosUsados.get(disciplinaId) || 0;
+
+        if (!Number.isFinite(pesoAtual) || pesoAtual <= 0 || pesoAtual > 100) {
+            return "O peso de cada disciplina deve estar entre 1% e 100%.";
+        }
+
+        if (pesoUsado + pesoAtual > 100) {
+            const nomeDisciplina = typeof conteudo.materia === "string"
+                ? conteudo.materia
+                : conteudo.materia?.nome || disciplinaId;
+            return `O peso da disciplina ${nomeDisciplina} ultrapassa o limite de 100% no bimestre.`;
+        }
+
+        pesosUsados.set(disciplinaId, pesoUsado + pesoAtual);
+    }
+
+    return null;
+}
+
 export default class SimuladosController {
     static async create(req, res) {
         const {
@@ -36,6 +79,11 @@ export default class SimuladosController {
             const turmaExists = await TurmasController.BuscarTurma({ _id: turma_id });
             if (!turmaExists)
                 return res.status(422).json({ message: "Turma não encontrada" });
+
+            const erroPeso = await validarPesosDoBimestre({ turma_id, bimestre, conteudos });
+            if (erroPeso) {
+                return res.status(422).json({ message: erroPeso });
+            }
 
             const simulado = new Simulado({
                 numero,
@@ -433,6 +481,16 @@ export default class SimuladosController {
 
             if (!conteudos || conteudos.length <= 0)
                 return res.status(422).json({ message: "Informe as disciplinas." });
+
+            const erroPeso = await validarPesosDoBimestre({
+                turma_id,
+                bimestre,
+                conteudos,
+                excluirSimuladoId: req.params.id
+            });
+            if (erroPeso) {
+                return res.status(422).json({ message: erroPeso });
+            }
 
             const simuladoupdate = await Simulado.findByIdAndUpdate(req.params.id, {
                 numero,

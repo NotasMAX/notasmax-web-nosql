@@ -240,6 +240,10 @@ test('simulado create, update, and lookup exercise fake persistence success path
   const validId = '507f1f77bcf86cd799439011';
   const record = { _id: validId, numero: 1 };
   const findOne = t.mock.method(Simulado, 'findOne', async () => null);
+  const find = t.mock.method(Simulado, 'find', () => ({
+    select: () => ({ lean: async () => [] }),
+    where: async () => [record],
+  }));
   t.mock.method(Turma, 'findOne', async () => ({ _id: validId }));
   t.mock.method(Simulado.prototype, 'save', async function () { return this; });
 
@@ -266,7 +270,7 @@ test('simulado create, update, and lookup exercise fake persistence success path
   await SimuladosController.update({ params: { id: validId }, body: validBody }, update);
   assert.equal(update.statusCode, 200);
 
-  t.mock.method(Simulado, 'find', () => ({ where: async () => [record] }));
+  find.mock.mockImplementation(() => ({ where: async () => [record] }));
   const byClass = response();
   await SimuladosController.getByTurma({ params: { turma_id: validId } }, byClass);
   assert.equal(byClass.statusCode, 200);

@@ -3,8 +3,10 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import SimuladosForm from './SimuladosForm';
 import { getAllTurmas, getOne } from '../api/turmasapi';
+import { getByTurma } from '../api/simuladoApi';
 
 vi.mock('../api/turmasapi', () => ({ getAllTurmas: vi.fn(), getOne: vi.fn() }));
+vi.mock('../api/simuladoApi', () => ({ getByTurma: vi.fn() }));
 vi.mock('primereact/toast', () => ({ Toast: () => null }));
 vi.mock('primereact/confirmdialog', () => ({ ConfirmDialog: () => null, confirmDialog: vi.fn() }));
 vi.mock('primereact/overlaypanel', () => ({ OverlayPanel: ({ children }) => <div>{children}</div> }));
@@ -12,7 +14,10 @@ vi.mock('./SimuladosDisciplinaItem', () => ({ default: () => null }));
 vi.mock('./SimuladosDisciplinaForm', () => ({ default: () => null }));
 
 describe('SimuladosForm', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    getByTurma.mockResolvedValue({ data: { simulados: [] } });
+  });
 
   it('busca turmas disponíveis e bloqueia submissão sem turma', async () => {
     const onSubmit = vi.fn();
