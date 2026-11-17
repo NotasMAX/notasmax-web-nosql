@@ -129,7 +129,22 @@ jobs:
           set -euo pipefail
           test -n "$AZURE_RESOURCE_GROUP" || { echo 'AZURE_RESOURCE_GROUP variable is required.' >&2; exit 1; }
           test -n "$AZURE_CONTAINER_APP_NAME" || { echo 'AZURE_CONTAINER_APP_NAME variable is required.' >&2; exit 1; }
+          az containerapp secret set \
+            --name "$AZURE_CONTAINER_APP_NAME" \
+            --resource-group "$AZURE_RESOURCE_GROUP" \
+            --secrets \
+              "azure-ai-endpoint=keyvaultref:https://nm-aca-free-check-kv.vault.azure.net/secrets/AZURE-AI-ENDPOINT,identityref:system" \
+              "azure-ai-api-key=keyvaultref:https://nm-aca-free-check-kv.vault.azure.net/secrets/AZURE-AI-API-KEY,identityref:system" \
+              "azure-ai-model=keyvaultref:https://nm-aca-free-check-kv.vault.azure.net/secrets/AZURE-AI-MODEL,identityref:system" \
+            --only-show-errors \
+            --output none
           az containerapp update \
             --name "$AZURE_CONTAINER_APP_NAME" \
             --resource-group "$AZURE_RESOURCE_GROUP" \
-            --image "$IMAGE_REF"
+            --image "$IMAGE_REF" \
+            --set-env-vars \
+              "AZURE_AI_ENDPOINT=secretref:azure-ai-endpoint" \
+              "AZURE_AI_API_KEY=secretref:azure-ai-api-key" \
+              "AZURE_AI_MODEL=secretref:azure-ai-model" \
+            --only-show-errors \
+            --output none
