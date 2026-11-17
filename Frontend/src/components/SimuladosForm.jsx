@@ -26,6 +26,12 @@ export default function SimuladosForm({ initialData, onSubmit, response }) {
     const toast = useRef(null);
     const overlayRef = useRef(null);
 
+    const showToast = (options) => {
+        if (toast.current && typeof toast.current.show === "function") {
+            toast.current.show(options);
+        }
+    };
+
     const removeDisciplina = (disciplinaToRemove) => {
         setFormData(prevData => ({
             ...prevData,
@@ -228,7 +234,7 @@ export default function SimuladosForm({ initialData, onSubmit, response }) {
         const questoesValidas = document.getElementsByName("quantidade_questoes");
 
         if (formData.turma_id && formData.bimestre && (carregandoPesos || erroPesos)) {
-            toast.current.show({
+            showToast({
                 severity: "error",
                 summary: "Erro",
                 detail: erroPesos || "Aguarde a consulta dos pesos utilizados neste bimestre.",
@@ -238,6 +244,7 @@ export default function SimuladosForm({ initialData, onSubmit, response }) {
         }
 
         Array.from(pesosValidos).forEach(element => {
+            element.setCustomValidity("");
             if (element.value <= 0) {
                 element.reportValidity();
                 element.focus();
@@ -254,6 +261,7 @@ export default function SimuladosForm({ initialData, onSubmit, response }) {
             }
         });
         Array.from(questoesValidas).forEach(element => {
+            element.setCustomValidity("");
             if (element.value <= 0) {
                 element.reportValidity();
                 element.focus();
@@ -270,9 +278,25 @@ export default function SimuladosForm({ initialData, onSubmit, response }) {
             }
         });
 
+        formData.conteudos.forEach((conteudo) => {
+            const disciplinaId = String(conteudo.turma_disciplina_id);
+            const pesoAtual = Number(conteudo.peso ?? 0);
+            const pesoRestante = pesosRestantes[disciplinaId] ?? 100;
+            if (pesoAtual > pesoRestante) {
+                showToast({
+                    severity: "error",
+                    summary: "Erro",
+                    detail: `O peso da disciplina ${conteudo.materia?.nome || "selecionada"} ultrapassa o limite disponível de ${pesoRestante}% no bimestre.`,
+                    life: 5000
+                });
+                error = true;
+            }
+        });
+
         if (!formData.turma_id) {
             const input_turma_id = document.getElementById("input_turma_id");
             if (input_turma_id) {
+                input_turma_id.setCustomValidity("");
                 input_turma_id.focus();
                 input_turma_id.setCustomValidity("A turma é obrigatória.");
                 input_turma_id.reportValidity();
@@ -282,6 +306,7 @@ export default function SimuladosForm({ initialData, onSubmit, response }) {
         if (!formData.bimestre) {
             const input_bimestre = document.getElementById("input_bimestre");
             if (input_bimestre) {
+                input_bimestre.setCustomValidity("");
                 input_bimestre.focus();
                 input_bimestre.setCustomValidity("O bimestre é obrigatório.");
                 input_bimestre.reportValidity();
@@ -291,6 +316,7 @@ export default function SimuladosForm({ initialData, onSubmit, response }) {
         if (!formData.tipo) {
             const input_tipo = document.getElementById("input_tipo");
             if (input_tipo) {
+                input_tipo.setCustomValidity("");
                 input_tipo.focus();
                 input_tipo.setCustomValidity("O tipo é obrigatório.");
                 input_tipo.reportValidity();
@@ -300,6 +326,7 @@ export default function SimuladosForm({ initialData, onSubmit, response }) {
         if (!formData.numero) {
             const input_numero = document.getElementById("input_numero");
             if (input_numero) {
+                input_numero.setCustomValidity("");
                 input_numero.focus();
                 input_numero.setCustomValidity("O número é obrigatório.");
                 input_numero.reportValidity();
@@ -309,6 +336,7 @@ export default function SimuladosForm({ initialData, onSubmit, response }) {
         if (!formData.data_realizacao) {
             const input_data_realizacao = document.getElementById("input_data_realizacao");
             if (input_data_realizacao) {
+                input_data_realizacao.setCustomValidity("");
                 input_data_realizacao.focus();
                 input_data_realizacao.setCustomValidity("A data de realização é obrigatória.");
                 input_data_realizacao.reportValidity();

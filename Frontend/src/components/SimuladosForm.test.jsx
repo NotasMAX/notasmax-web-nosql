@@ -7,7 +7,17 @@ import { getByTurma } from '../api/simuladoApi';
 
 vi.mock('../api/turmasapi', () => ({ getAllTurmas: vi.fn(), getOne: vi.fn() }));
 vi.mock('../api/simuladoApi', () => ({ getByTurma: vi.fn() }));
-vi.mock('primereact/toast', () => ({ Toast: () => null }));
+vi.mock('primereact/toast', async () => {
+  const ReactModule = await import('react');
+  return {
+    Toast: ReactModule.forwardRef((props, ref) => {
+      ReactModule.useImperativeHandle(ref, () => ({
+        show: vi.fn()
+      }));
+      return null;
+    })
+  };
+});
 vi.mock('primereact/confirmdialog', () => ({ ConfirmDialog: () => null, confirmDialog: vi.fn() }));
 vi.mock('primereact/overlaypanel', () => ({ OverlayPanel: ({ children }) => <div>{children}</div> }));
 vi.mock('./SimuladosDisciplinaItem', () => ({ default: () => null }));
@@ -29,7 +39,7 @@ describe('SimuladosForm', () => {
     expect(onSubmit).not.toHaveBeenCalled();
   });
 
-  it('submits a complete simulation and converts its date to an ISO timestamp', () => {
+  it('submits a complete simulation and converts its date to an ISO timestamp', async () => {
     const onSubmit = vi.fn();
     getAllTurmas.mockResolvedValue({ data: { turmas: [] } });
     const initialData = {
@@ -48,6 +58,8 @@ describe('SimuladosForm', () => {
     };
     render(<MemoryRouter><SimuladosForm initialData={initialData} onSubmit={onSubmit} /></MemoryRouter>);
 
+    await waitFor(() => expect(getByTurma).toHaveBeenCalledWith('turma-1'));
+    await new Promise((resolve) => setTimeout(resolve, 0));
     fireEvent.click(screen.getByRole('button', { name: 'Cadastrar Simulado' }));
 
     expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({
@@ -65,7 +77,7 @@ describe('SimuladosForm', () => {
     ['tipo', '', 'O tipo é obrigatório.'],
     ['numero', '', 'O número é obrigatório.'],
     ['data_realizacao', '', 'A data de realização é obrigatória.'],
-  ])('blocks submission when %s is missing', (field, value, expectedMessage) => {
+  ])('blocks submission when %s is missing', async (field, value, expectedMessage) => {
     const onSubmit = vi.fn();
     getAllTurmas.mockResolvedValue({ data: { turmas: [] } });
     const initialData = {
@@ -79,6 +91,8 @@ describe('SimuladosForm', () => {
     };
     render(<MemoryRouter><SimuladosForm initialData={initialData} onSubmit={onSubmit} /></MemoryRouter>);
 
+    await waitFor(() => expect(getByTurma).toHaveBeenCalledWith('turma-1'));
+    await new Promise((resolve) => setTimeout(resolve, 0));
     fireEvent.click(screen.getByRole('button', { name: 'Cadastrar Simulado' }));
 
     expect(document.getElementById(`input_${field}`).validationMessage).toBe(expectedMessage);
