@@ -3,8 +3,10 @@ import jwt from 'jsonwebtoken';
 const JWT_SECRET = process.env.JWT_SECRET || "chave-secreta-super-segura";
 
 export const authenticateToken = (req, res, next) => {
-    // 1. Obter o token do COOKIE 'jwt'
-    const token = req.cookies.jwt; 
+   // 1. Obter o token: header Authorization (app mobile) ou cookie 'jwt' (painel web)
+    const header = req.headers.authorization;
+    const bearer = header?.startsWith("Bearer ") ? header.slice(7).trim() : null;
+    const token = bearer || req.cookies?.jwt;
     
     if (!token) {
         return res.status(401).json({ message: 'Acesso negado. Necessário estar logado.' });
