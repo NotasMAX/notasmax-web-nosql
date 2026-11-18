@@ -36,6 +36,7 @@ import SimuladosNotas from "./pages/SimuladosNotas";
 import SimuladosNotasIndividual from "./pages/SimuladosNotasIndividual";
 import ImportarNotas from "./pages/ImportarNotas";
 import ConfirmarImportacaoNotas from "./pages/ConfirmarImportacaoNotas";
+import AlunosAtencao from "./pages/AlunosAtencao";
 
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
@@ -270,6 +271,14 @@ function App() {
             <AdminRoute>
               <Layout>
                 <AlunoListar />
+              </Layout>
+            </AdminRoute>
+          } />
+
+          <Route path="/Alunos/Atencao" element={
+            <AdminRoute>
+              <Layout>
+                <AlunosAtencao />
               </Layout>
             </AdminRoute>
           } />

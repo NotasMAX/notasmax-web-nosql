@@ -1,8 +1,9 @@
 import React, { useRef, useEffect, useState } from 'react'
-import { NavLink } from 'react-router-dom';
+import { NavLink, useLocation } from 'react-router-dom';
 import Style from "../styles/Navigation.module.css";
 
 export default function Navigation({ }) {
+    const location = useLocation();
     const navButtonRef = useRef(null);
     const navRef = useRef(null);
     const isFirstRender = useRef(true);
@@ -123,6 +124,12 @@ export default function Navigation({ }) {
                         Alunos
                     </div>
                 </NavLink>
+                {location.pathname.startsWith("/Alunos") && <NavLink className={({ isActive }) => `${isActive ? Style.navLinkActive : Style.navLink} ${Style.navAttention}`} to="/Alunos/Atencao">
+                    <svg className={Style.navIconStroke} width="200" height="200" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M12 9v4m0 4h.01M10.3 3.8 2.7 17a2 2 0 0 0 1.73 3h15.14a2 2 0 0 0 1.73-3L13.7 3.8a2 2 0 0 0-3.4 0Z"/></svg>
+                    <div className={Style.navLinkText}>
+                        Alunos em atenção
+                    </div>
+                </NavLink>}
             </nav >
         </div>
     )

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, use } from "react";
 import { useNavigate } from "react-router-dom";
 import Style from "../styles/SimuladosForm.module.css";
 import { getAllTurmas, getOne } from "../api/turmasapi";
+import { getByTurma } from "../api/simuladoApi";
 import { Toast } from "primereact/toast";
 import { ConfirmDialog, confirmDialog } from "primereact/confirmdialog";
 import { OverlayPanel } from "primereact/overlaypanel";
@@ -19,6 +20,11 @@ export default function SimuladosForm({ initialData, onSubmit, response, simulad
         conteudos: [],
     });
     const [Turma, setTurma] = useState([]);
+    const [pesosRestantes, setPesosRestantes] = useState({});
+    const [pesosMaximos, setPesosMaximos] = useState({});
+    const [erroPesos, setErroPesos] = useState("");
+    const [carregandoPesos, setCarregandoPesos] = useState(false);
+    const [limiteUltrapassado, setLimiteUltrapassado] = useState(false);
     const tooltipRef = useRef(null);
     const navigate = useNavigate();
     const toast = useRef(null);
@@ -96,6 +102,85 @@ export default function SimuladosForm({ initialData, onSubmit, response, simulad
         }
     }, [initialData]);
 
+    useEffect(() => {
+        let mounted = true;
+
+        if (!formData.turma_id || !formData.bimestre) {
+            setPesosRestantes({});
+            setPesosMaximos({});
+            setErroPesos("");
+            setLimiteUltrapassado(false);
+            setCarregandoPesos(false);
+            return () => {
+                mounted = false;
+            };
+        }
+
+        const fetchPesos = async () => {
+            try {
+                setCarregandoPesos(true);
+                setErroPesos("");
+                const response = await getByTurma(formData.turma_id);
+                const simulados = (response.data?.simulados || [])
+                    .filter((item) => Number(item.bimestre) === Number(formData.bimestre))
+                    .filter((item) => String(item._id) !== String(simulado?._id));
+                const pesosDosOutrosSimulados = {};
+
+                simulados.forEach((item) => {
+                    (item.conteudos || []).forEach((conteudo) => {
+                        const disciplinaId = String(conteudo.turma_disciplina_id);
+                        pesosDosOutrosSimulados[disciplinaId] =
+                            (pesosDosOutrosSimulados[disciplinaId] || 0) + Number(conteudo.peso ?? 1);
+                    });
+                });
+
+                const pesosDoFormulario = {};
+                formData.conteudos.forEach((conteudo) => {
+                    const disciplinaId = String(conteudo.turma_disciplina_id);
+                    pesosDoFormulario[disciplinaId] =
+                        (pesosDoFormulario[disciplinaId] || 0) + Number(conteudo.peso ?? 0);
+                });
+
+                const disciplinaIds = new Set([
+                    ...Object.keys(pesosDosOutrosSimulados),
+                    ...Object.keys(pesosDoFormulario)
+                ]);
+                const novosPesosRestantes = {};
+                const novosPesosMaximos = {};
+                let possuiLimiteUltrapassado = false;
+
+                disciplinaIds.forEach((disciplinaId) => {
+                    const pesoDosOutros = pesosDosOutrosSimulados[disciplinaId] || 0;
+                    const pesoTotal = pesoDosOutros + (pesosDoFormulario[disciplinaId] || 0);
+                    novosPesosRestantes[disciplinaId] = Math.max(0, 100 - pesoTotal);
+                    novosPesosMaximos[disciplinaId] = Math.max(0, 100 - pesoDosOutros);
+                    if (pesoTotal > 100) possuiLimiteUltrapassado = true;
+                });
+
+                if (mounted) {
+                    setPesosRestantes(novosPesosRestantes);
+                    setPesosMaximos(novosPesosMaximos);
+                    setLimiteUltrapassado(possuiLimiteUltrapassado);
+                }
+            } catch (error) {
+                if (mounted) {
+                    setPesosRestantes({});
+                    setPesosMaximos({});
+                    setErroPesos("Não foi possível consultar os pesos já utilizados neste bimestre.");
+                }
+                console.error("Erro ao consultar pesos dos simulados:", error);
+            } finally {
+                if (mounted) setCarregandoPesos(false);
+            }
+        };
+
+        fetchPesos();
+
+        return () => {
+            mounted = false;
+        };
+    }, [formData.turma_id, formData.bimestre, formData.conteudos, simulado?._id]);
+
     const fetchDisciplinas = async (e) => {
         e.preventDefault();
         const oldFormData = { ...formData };
@@ -161,6 +246,16 @@ export default function SimuladosForm({ initialData, onSubmit, response, simulad
 
         const pesosValidos = document.getElementsByName("peso");
         const questoesValidas = document.getElementsByName("quantidade_questoes");
+
+        if (carregandoPesos || erroPesos || limiteUltrapassado) {
+            toast.current.show({
+                severity: "error",
+                summary: "Erro",
+                detail: erroPesos || "O peso total de uma ou mais disciplinas ultrapassa 100% no bimestre.",
+                life: 5000
+            });
+            return;
+        }
 
         Array.from(pesosValidos).forEach(element => {
             if (element.value <= 0) {
@@ -444,6 +539,9 @@ export default function SimuladosForm({ initialData, onSubmit, response, simulad
                             <SimuladosDisciplinaItem
                                 key={disciplina.turma_disciplina_id || index}
                                 disciplina={disciplina}
+                                pesoRestante={pesosRestantes[String(disciplina.turma_disciplina_id)] ?? 100}
+                                pesoMaximo={pesosMaximos[String(disciplina.turma_disciplina_id)] ?? 100}
+                                pesoRestanteCarregando={carregandoPesos}
                                 removeDisciplina={removeDisciplina}
                                 onUpdate={handleUpdateDisciplina}
                                 toast={toast}
@@ -451,6 +549,11 @@ export default function SimuladosForm({ initialData, onSubmit, response, simulad
                         ))
                     )}
                 </div>
+                {(erroPesos || limiteUltrapassado) && (
+                    <p className="mb-4 rounded bg-yellow-50 p-3 text-yellow-800">
+                        {erroPesos || "O peso total de uma ou mais disciplinas ultrapassa 100% no bimestre. Ajuste os pesos antes de salvar."}
+                    </p>
+                )}
                 <div className={Style.buttonGroup}>
                     <div className={Style.buttonGroup}>
 

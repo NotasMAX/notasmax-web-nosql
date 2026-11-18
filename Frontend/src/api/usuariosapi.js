@@ -11,6 +11,10 @@ export const getDesempenhoAluno = (aluno_id, ano, turmaId, bimestre) =>
   api.get(`/Usuarios/Aluno/${aluno_id}/desempenho`, {
     params: { ano, turmaId, bimestre }
   });
+export const getAlunosEmAtencao = (params = {}) =>
+  api.get("/IA/Alunos/Atencao", { params });
+export const gerarSugestoesAluno = (data) =>
+  api.post("/IA/Alunos/Atencao/Sugestoes", data);
 
 // Endpoints Comuns (Alunos e Professores)
 export const getUsuario = (id) => api.get(`/Usuarios/Detalhes/${id}`);
