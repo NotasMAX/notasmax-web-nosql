@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { getAlunosEmAtencao, gerarSugestoesAluno } from "../api/usuariosapi";
 import { getAllTurmas } from "../api/turmasapi";
 import StyleTitle from "../styles/Title.module.css";
@@ -29,6 +29,7 @@ export default function AlunosAtencao() {
   const [sugestoesIA, setSugestoesIA] = useState(null);
   const [carregandoSugestoes, setCarregandoSugestoes] = useState(false);
   const [erroSugestoes, setErroSugestoes] = useState("");
+  const requisicaoSugestoesRef = useRef(0);
 
   useEffect(() => {
     document.title = "NotasMAX - Alunos em atenção";
@@ -63,15 +64,19 @@ export default function AlunosAtencao() {
   }, [filtros.turmaId, filtros.ano, filtros.bimestre, filtros.nivel]);
 
   const atualizarFiltro = (campo, valor) => {
+    requisicaoSugestoesRef.current += 1;
     setFiltros((anterior) => ({ ...anterior, [campo]: valor }));
     setAlunoSelecionado(null);
     setSugestoesIA(null);
+    setCarregandoSugestoes(false);
     setErroSugestoes("");
   };
 
   const pedirSugestoes = async () => {
     if (!alunoSelecionado) return;
 
+    const alunoId = alunoSelecionado.alunoId;
+    const requisicaoId = ++requisicaoSugestoesRef.current;
     setCarregandoSugestoes(true);
     setSugestoesIA(null);
     setErroSugestoes("");
@@ -82,14 +87,36 @@ export default function AlunosAtencao() {
       );
       const response = await gerarSugestoesAluno({
         ...params,
-        alunoId: alunoSelecionado.alunoId
+        alunoId
       });
-      setSugestoesIA(response.data);
+      if (requisicaoSugestoesRef.current === requisicaoId) {
+        setSugestoesIA(response.data);
+      }
     } catch (requestError) {
-      setErroSugestoes(requestError.response?.data?.message || "Não foi possível gerar sugestões.");
+      if (requisicaoSugestoesRef.current === requisicaoId) {
+        setErroSugestoes(requestError.response?.data?.message || "Não foi possível gerar sugestões.");
+      }
     } finally {
-      setCarregandoSugestoes(false);
+      if (requisicaoSugestoesRef.current === requisicaoId) {
+        setCarregandoSugestoes(false);
+      }
     }
+  };
+
+  const selecionarAluno = (aluno) => {
+    requisicaoSugestoesRef.current += 1;
+    setAlunoSelecionado(aluno);
+    setSugestoesIA(null);
+    setCarregandoSugestoes(false);
+    setErroSugestoes("");
+  };
+
+  const fecharAnalise = () => {
+    requisicaoSugestoesRef.current += 1;
+    setAlunoSelecionado(null);
+    setSugestoesIA(null);
+    setCarregandoSugestoes(false);
+    setErroSugestoes("");
   };
 
   const resumo = analise.resumo || {};
@@ -202,7 +229,7 @@ export default function AlunosAtencao() {
                     </span>
                   </td>
                   <td className="p-3">
-                    <button className="font-medium text-blue-700 hover:underline" onClick={() => setAlunoSelecionado(aluno)}>
+                    <button className="font-medium text-blue-700 hover:underline" onClick={() => selecionarAluno(aluno)}>
                       Ver análise
                     </button>
                   </td>
@@ -220,7 +247,7 @@ export default function AlunosAtencao() {
               <h2 className="text-xl font-bold text-[#043666]">{alunoSelecionado.nome}</h2>
               <p className="text-gray-600">{alunoSelecionado.turma}</p>
             </div>
-            <button className="text-gray-500 hover:text-gray-900" onClick={() => setAlunoSelecionado(null)} aria-label="Fechar análise">Fechar</button>
+            <button className="text-gray-500 hover:text-gray-900" onClick={fecharAnalise} aria-label="Fechar análise">Fechar</button>
           </div>
           <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4">
             <p>Média atual: <strong>{formatNumber(alunoSelecionado.mediaAtual)}</strong></p>
