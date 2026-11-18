@@ -28,7 +28,7 @@ Depois de abrir a importação:
 
 1. Escolha o arquivo .xlsx e clique em **Confirmar**. O sistema lê a planilha e abre a revisão, sem gravar nada.
 2. Se nenhuma aba tiver o nome do aluno e houver mais de uma aba, escolha a aba e clique de novo.
-3. Na revisão, confira a disciplina ligada a cada coluna, que aparece embaixo do nome da coluna, e abra as colunas para ver os SIMs. Coluna sem dono ou repetida mostra o seletor de professor; nas outras, o botão **Trocar professor**, dentro da coluna aberta, abre a mesma lista direto.
+3. Na revisão, confira a disciplina ligada a cada coluna, que aparece embaixo do nome da coluna, e abra as colunas para ver os SIMs. Coluna sem dono ou repetida mostra o seletor de professor; as outras ficam como o sistema ligou.
 4. Ajuste tipo, peso, questões e acertos no que for preciso. Nos SIMs novos, preencha as questões de cada disciplina e confira a data. As notas são recalculadas a cada alteração.
 5. Com todos os bloqueios resolvidos, clique em **Confirmar**. Se algo vale para a turma inteira (tipo, peso, questões, simulado novo ou disciplina adicionada a um simulado), o sistema pergunta antes. O arquivo vai junto e é guardado antes das notas.
 6. A tela mostra quantas notas foram criadas, atualizadas, removidas e mantidas, e leva às notas do aluno.
@@ -129,10 +129,10 @@ A disciplina de cada coluna é buscada nesta ordem:
 
 **Por que uma coluna fica "sem dono".** Ou a turma não tem nenhuma disciplina dessa matéria, ou tem mais de uma e o professor do cabeçalho não decide.
 
-**Seletor de professor.** A revisão não tem mais a coluna "Disciplina da turma": a disciplina ligada aparece embaixo do nome da coluna. Na lista, o seletor só aparece quando há decisão a tomar: coluna sem dono ou duas colunas na mesma disciplina. Numa coluna ligada certa, a troca fica dentro da coluna aberta, ao lado do nome da disciplina: o botão **Trocar professor** já abre a lista, com o professor atual marcado como "(atual)". Escolher de novo o professor atual não muda nada, e fechar a lista sem escolher também não. A matéria vem sempre do cabeçalho; o admin escolhe só o professor:
+**Seletor de professor.** A revisão não tem mais a coluna "Disciplina da turma": a disciplina ligada aparece embaixo do nome da coluna. O seletor só aparece quando há decisão a tomar: coluna sem dono, como uma matéria que a turma não tem, ou duas colunas na mesma disciplina. Depois da escolha, ele continua na coluna, para corrigir um engano. Coluna que o sistema ligou sozinho não tem seletor: o professor dela não muda na revisão, e assim a revisão não cria por engano uma segunda disciplina para uma matéria que a turma já tem. A matéria vem sempre do cabeçalho; o admin escolhe só o professor:
 
 - **Já dão a matéria nesta turma:** liga a coluna a essa disciplina.
-- **Adicionar a matéria à turma com:** qualquer outro professor do sistema. Escolher um deles cria uma disciplina nova (matéria do cabeçalho + professor), que aparece embaixo do nome da coluna com a etiqueta "nova" e só é cadastrada na turma ao confirmar. Assim, um professor pode dar várias matérias na mesma turma sem cair em "disciplina repetida".
+- **Adicionar a matéria à turma com:** qualquer outro professor do sistema. Escolher um deles cria uma disciplina nova (matéria do cabeçalho + professor), que aparece embaixo do nome da coluna com a etiqueta "nova" e só é cadastrada na turma ao confirmar. Trocada por outra escolha antes de confirmar, ela sai da lista. Assim, um professor pode dar várias matérias na mesma turma sem cair em "disciplina repetida".
 - **Matéria que não existe no sistema:** escolher um professor abre o formulário, já com ele, para dar nome à matéria.
 
 O seletor e o formulário só listam professores já cadastrados. Professor que ainda não existe é cadastrado antes, na tela de professores.
@@ -230,7 +230,7 @@ A revisão existe para o admin decidir tipo, peso e acertos de cada SIM, e cada 
 | "Nulo" | Revisão, apagando os acertos | Só este aluno | Remove a nota já lançada, com aviso |
 | Peso | Revisão, sempre editável | A turma inteira, nessa disciplina e nesse SIM | Inteiro de 1 a 100; não pode levar a nota de nenhum aluno acima de 10 |
 | Tipo | Revisão, no lápis da linha | O simulado inteiro: todas as disciplinas e todos os alunos | Objetivo ou dissertativo; os acertos passam de uma nota para a outra |
-| Professor da coluna | Revisão: seletor na lista (sem dono ou repetida) ou botão **Trocar professor** dentro da coluna aberta | Próximas importações da turma com o mesmo cabeçalho | Duas colunas não podem ficar na mesma disciplina (mesma matéria e mesmo professor) |
+| Professor da coluna | Revisão: seletor na lista, só em coluna sem dono ou repetida; depois da escolha, o seletor continua para corrigir | Próximas importações da turma com o mesmo cabeçalho | Duas colunas não podem ficar na mesma disciplina (mesma matéria e mesmo professor) |
 | Acertos, depois da importação | **Lançar Notas Simulado** | Só este aluno | Até o número de questões; não tem como marcar "nulo", porque vazio vira 0 |
 | Número de questões, fora da importação | **Editar Simulado** | O simulado inteiro | Só até 16 dias depois do cadastro |
 
@@ -445,14 +445,14 @@ A nota dissertativa fica 0,00 e a final fica igual à objetiva, até o admin mar
 | Gravação, reaproveitamento do mesmo arquivo e limpeza quando as notas falham | Passou | Testes automáticos, com um container falso |
 | Chamada real à biblioteca da Azure | Falhou no login, como esperado fora da Azure, sem enviar arquivo | Modo produção, no computador local |
 
-**Revisão com simulados, disciplinas e matérias novos, em 18/11/2026.** Simulado novo, questões editáveis, "novo responsável", texto como "nulo", seletor de professor, disciplina e matéria cadastradas só ao confirmar, e Bloqueios e Avisos recolhíveis. Partes da revisão foram vistas no navegador durante os ajustes, com a seed. Os painéis recolhíveis e a confirmação com disciplina nova não foram conferidos no navegador, só nos testes automáticos.
+**Revisão com simulados, disciplinas e matérias novos, em 18/11/2026.** Simulado novo, questões editáveis, "novo responsável", texto como "nulo", seletor de professor só em coluna sem dono ou repetida, disciplina e matéria cadastradas só ao confirmar, e Bloqueios e Avisos recolhíveis. Partes da revisão foram vistas no navegador durante os ajustes, com a seed. Os painéis recolhíveis e a confirmação com disciplina nova não foram conferidos no navegador, só nos testes automáticos. Os números abaixo já incluem o que veio da main no mesmo dia, como a análise de alunos em atenção.
 
 | Verificação | Resultado | Como rodou |
 | --- | --- | --- |
-| Testes do backend | 286 de 286 | Node 24.19.0 local; o CI do backend usa 26.5.1 |
-| Testes do front | 270 de 270 | Node 24.19.0 local; o CI do front usa 24.21.0 |
-| Cobertura de linhas do backend | 86,93% (mínimo 80%) | Node 24.19.0 local |
-| Cobertura de linhas do front | 84,19% (mínimo 80%) | Node 24.19.0 local |
+| Testes do backend | 293 de 293 | Node 24.19.0 local; o CI do backend usa 26.5.1 |
+| Testes do front | 271 de 271 | Node 24.19.0 local; o CI do front usa 24.21.0 |
+| Cobertura de linhas do backend | 83,07% (mínimo 80%) | Node 24.19.0 local |
+| Cobertura de linhas do front | 82,21% (mínimo 80%) | Node 24.19.0 local |
 | Cadastro de matéria e disciplina só depois das validações, com o id real nas notas e desfeito se as notas falham | Passou | Testes automáticos do controller, com o banco simulado |
 
 Para conferir na Azure, importe dois alunos com o mesmo arquivo, que tenha uma aba para cada um. As planilhas de teste usam os alunos da seed, então no app da Azure é preciso um arquivo com alunos, disciplinas e simulados que existam lá. Se as duas importações derem certo, a planilha foi guardada e reaproveitada, porque em produção uma falha no Blob bloqueia a importação. Para ver o arquivo em `files/importacoes-notas/`, é preciso acesso à conta de armazenamento.

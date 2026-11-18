@@ -68,10 +68,10 @@ export default function ConferenciaColuna({
         setEmEdicao((atuais) => (atuais.includes(numero) ? atuais.filter((n) => n !== numero) : [...atuais, numero]));
     };
 
-    // Na lista, o seletor só aparece quando há decisão a tomar: coluna sem dono ou disciplina repetida.
-    // Numa coluna ligada certa, a troca é o botão "Trocar professor", dentro da coluna aberta.
+    // O seletor só aparece quando há decisão a tomar: coluna sem dono ou disciplina repetida. Depois de o admin
+    // escolher, ele continua na coluna, para corrigir a escolha. Coluna ligada pelo sistema não tem seletor.
     const repetida = bloqueios.some(({ codigo }) => codigo === "COLUNAS_MESMA_DISCIPLINA");
-    const mostrarSeletor = !disciplinaId || repetida;
+    const mostrarSeletor = !disciplinaId || repetida || Boolean(coluna.trocada);
 
     const ligar = (id) => {
         setProfessorDoFormulario(null);
@@ -82,19 +82,6 @@ export default function ConferenciaColuna({
         setProfessorDoFormulario(null);
         onNovaDisciplina(letra, nova);
     };
-
-    const seletor = (comoBotao) => (
-        <SeletorProfessorColuna
-            coluna={coluna}
-            disciplinas={estado.disciplinas}
-            materias={materias}
-            professores={professores}
-            comoBotao={comoBotao}
-            onEscolher={ligar}
-            onNovaDisciplina={ligarNova}
-            onMateriaNova={setProfessorDoFormulario}
-        />
-    );
 
     const status = bloqueios.length > 0
         ? { classe: Style.statusBloqueio, texto: `Bloqueio: ${ROTULOS_DE_STATUS[bloqueios[0].codigo]}` }
@@ -110,7 +97,7 @@ export default function ConferenciaColuna({
                         <SetaExpandir className={aberta ? Style.setaAberta : Style.setaFechada} />
                         {cabecalhoOriginal}
                     </button>
-                    {disciplina && !mostrarSeletor && (
+                    {disciplina && (
                         <span className={Style.disciplinaLigada}>
                             {disciplina.materia} - {disciplina.professor}
                             {/* Escolhida na revisão: só é cadastrada na turma ao confirmar. */}
@@ -119,7 +106,17 @@ export default function ConferenciaColuna({
                     )}
                 </div>
                 <div className={Style.areaProfessor}>
-                    {mostrarSeletor && seletor(false)}
+                    {mostrarSeletor && (
+                        <SeletorProfessorColuna
+                            coluna={coluna}
+                            disciplinas={estado.disciplinas}
+                            materias={materias}
+                            professores={professores}
+                            onEscolher={ligar}
+                            onNovaDisciplina={ligarNova}
+                            onMateriaNova={setProfessorDoFormulario}
+                        />
+                    )}
                 </div>
                 <span className={status.classe}>{status.texto}</span>
             </div>
@@ -135,12 +132,9 @@ export default function ConferenciaColuna({
 
             {aberta && (
                 <div className={Style.corpoColuna}>
-                    <div className="flex flex-wrap items-center gap-4">
-                        <p className={Style.tituloDisciplina}>
-                            {disciplina ? `${disciplina.materia} - ${disciplina.professor}` : cabecalhoOriginal}
-                        </p>
-                        {disciplina && !mostrarSeletor && seletor(true)}
-                    </div>
+                    <p className={Style.tituloDisciplina}>
+                        {disciplina ? `${disciplina.materia} - ${disciplina.professor}` : cabecalhoOriginal}
+                    </p>
 
                     <div className={`${Style.cabecalhoTabela} ${Style.colunasTabela}`}>
                         <p className={Style.tituloColuna}>Simulado</p>

@@ -243,11 +243,6 @@
     @apply h-[34px] w-[200px] max-w-full cursor-pointer rounded-lg border border-[#404040] bg-white px-2 text-sm font-medium text-[#404040] shadow-sm hover:bg-gray-50;
 }
 
-/* Seletor com cara de botão: um clique abre a lista de professores. */
-.botaoSeletor {
-    composes: seletorProfessor;
-}
-
 /* Campo de texto com sugestões: sem a seta que o Chrome desenha, para não parecer uma lista. */
 .campoSugestoes {
     composes: campoTexto;

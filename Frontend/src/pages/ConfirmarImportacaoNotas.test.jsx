@@ -102,13 +102,19 @@ describe('ConfirmarImportacaoNotas', () => {
     getProfessores.mockResolvedValue({ data: [{ _id: 'p1', nome: 'Lourdes Prado' }, { _id: 'p2', nome: 'Helena Vaz' }, { _id: 'p3', nome: 'Toni Almeida' }] });
   });
 
-  // Escolhe Lourdes Prado para a coluna INGLÊS pelo botão de trocar professor: vira "Inglês - Lourdes Prado", nova.
+  // A coluna INGLÊS chega sem dono, e o seletor dela aparece na lista.
+  const previaComInglesSemDono = () => {
+    const previa = previaBase();
+    previa.colunas[1] = { ...previa.colunas[1], turma_disciplina_id: null };
+    return previa;
+  };
+
+  // Escolhe Lourdes Prado para a coluna INGLÊS sem dono: vira "Inglês - Lourdes Prado", nova.
   async function escolherLourdesParaIngles() {
-    fireEvent.click(screen.getByRole('button', { name: 'INGLÊS' }));
-    const trocar = screen.getByRole('combobox', { name: 'Trocar professor da coluna INGLÊS' });
-    await within(trocar).findByRole('option', { name: 'Lourdes Prado' });
-    expect(within(trocar).getByRole('group', { name: 'Adicionar Inglês à turma com' })).toHaveTextContent('Lourdes Prado');
-    fireEvent.change(trocar, { target: { value: 'p:p1' } });
+    const seletor = screen.getByRole('combobox', { name: 'Professor da coluna INGLÊS' });
+    await within(seletor).findByRole('option', { name: 'Lourdes Prado' });
+    expect(within(seletor).getByRole('group', { name: 'Adicionar Inglês à turma com' })).toHaveTextContent('Lourdes Prado');
+    fireEvent.change(seletor, { target: { value: 'p:p1' } });
     return screen.getByText('Inglês - Lourdes Prado', { selector: 'span' });
   }
 
@@ -232,7 +238,9 @@ describe('ConfirmarImportacaoNotas', () => {
     fireEvent.change(seletor, { target: { value: 'd:d2' } });
 
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
-    expect(screen.queryByRole('combobox', { name: 'Professor da coluna INGLÊS' })).not.toBeInTheDocument();
+    // Escolhido o professor, o seletor continua na coluna, para corrigir a escolha.
+    expect(screen.getByRole('combobox', { name: 'Professor da coluna INGLÊS' })).toHaveValue('d:d2');
+    expect(screen.getByText('Inglês - Helena Vaz', { selector: 'span' })).toBeInTheDocument();
     fireEvent.click(confirmar());
     await screen.findByRole('status');
     expect(conferenciaEnviada().colunas[1]).toMatchObject({ turma_disciplina_id: 'd2', trocada: true });
@@ -249,15 +257,17 @@ describe('ConfirmarImportacaoNotas', () => {
     fireEvent.change(screen.getByRole('combobox', { name: 'Professor da coluna FÍSICA - LÔ' }), { target: { value: 'd:d1' } });
 
     expect(screen.queryByText('Bloqueio: disciplina repetida')).not.toBeInTheDocument();
-    expect(screen.queryByRole('combobox', { name: /^Professor da coluna/ })).not.toBeInTheDocument();
-    expect(screen.getByRole('combobox', { name: 'Trocar professor da coluna FÍSICA - LÔ' })).toBeInTheDocument();
+    // A coluna corrigida pelo admin mantém o seletor; a outra, ligada pelo sistema, fica sem.
+    expect(screen.getByRole('combobox', { name: 'Professor da coluna FÍSICA - LÔ' })).toHaveValue('d:d1');
+    expect(screen.queryByRole('combobox', { name: 'Professor da coluna INGLÊS' })).not.toBeInTheDocument();
   });
 
   it('um professor que já dá outra matéria vira uma disciplina nova, que só vai para o servidor ao confirmar', async () => {
     confirmarImportacaoNotas.mockResolvedValue({ data: { message: 'ok', criados: 2, atualizados: 0, removidos: 0, ignorados: 0, disciplinasCadastradas: 1, disciplinasAdicionadas: 2 } });
-    abrir();
+    abrir(previaComInglesSemDono());
 
     const ligada = await escolherLourdesParaIngles();
+    fireEvent.click(screen.getByRole('button', { name: 'INGLÊS' }));
     expect(within(ligada).getByText('nova')).toBeInTheDocument();
     expect(screen.getByText('Bloqueio: questões inválidas')).toBeInTheDocument();
     expect(screen.getByText('Coluna C ("INGLÊS"): Inglês - Lourdes Prado será cadastrada na turma ao confirmar.')).toBeInTheDocument();
@@ -280,35 +290,28 @@ describe('ConfirmarImportacaoNotas', () => {
 
   it('voltar para quem já dava a matéria tira da lista a disciplina nova escolhida antes, sem precisar recarregar', async () => {
     confirmarImportacaoNotas.mockResolvedValue({ data: { message: 'ok', criados: 0, atualizados: 0, removidos: 0, ignorados: 2 } });
-    abrir();
+    abrir(previaComInglesSemDono());
     await escolherLourdesParaIngles();
-    const grupos = () => {
-      const trocar = screen.getByRole('combobox', { name: 'Trocar professor da coluna INGLÊS' });
-      return {
-        trocar,
-        jaDao: within(trocar).getByRole('group', { name: 'Já dão Inglês nesta turma' }),
-        adicionar: within(trocar).getByRole('group', { name: 'Adicionar Inglês à turma com' }),
-      };
-    };
+    const seletor = () => screen.getByRole('combobox', { name: 'Professor da coluna INGLÊS' });
+    const jaDao = () => within(seletor()).getByRole('group', { name: 'Já dão Inglês nesta turma' });
 
-    // A disciplina nova ainda não dá a matéria: Lourdes fica em "Adicionar", marcada como atual.
-    expect(grupos().jaDao).toHaveTextContent(/^Helena Vaz$/);
-    expect(grupos().adicionar).toHaveTextContent('Lourdes Prado (atual)');
-    fireEvent.change(grupos().trocar, { target: { value: 'p:p1' } });
-    expect(screen.getByText('Inglês - Lourdes Prado', { selector: 'span' })).toBeInTheDocument();
+    // A disciplina nova ainda não dá a matéria: Lourdes continua em "Adicionar", selecionada.
+    expect(seletor()).toHaveValue('p:p1');
+    expect(jaDao()).toHaveTextContent(/^Helena Vaz$/);
 
-    fireEvent.change(grupos().trocar, { target: { value: 'd:d2' } });
+    fireEvent.change(seletor(), { target: { value: 'd:d2' } });
 
     expect(screen.getByText('Inglês - Helena Vaz', { selector: 'span' })).toBeInTheDocument();
-    expect(grupos().jaDao).toHaveTextContent(/^Helena Vaz \(atual\)$/);
-    expect(grupos().adicionar).not.toHaveTextContent('(atual)');
+    expect(seletor()).toHaveValue('d:d2');
+    expect(jaDao()).toHaveTextContent(/^Helena Vaz$/);
+    expect(within(seletor()).getByRole('group', { name: 'Adicionar Inglês à turma com' })).toHaveTextContent('Lourdes Prado');
     fireEvent.click(confirmar());
     await waitFor(() => expect(confirmarImportacaoNotas).toHaveBeenCalled());
     expect(conferenciaEnviada().disciplinasNovas).toEqual([]);
   });
 
   it('cancelar depois de escolher uma disciplina nova volta sem salvar nada', async () => {
-    abrir();
+    abrir(previaComInglesSemDono());
     await escolherLourdesParaIngles();
 
     fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }));
@@ -339,27 +342,14 @@ describe('ConfirmarImportacaoNotas', () => {
     expect(screen.getByRole('alert')).toHaveTextContent('As colunas C ("ARTES") e D ("ARTES - RITA") estão ligadas à mesma disciplina: Artes - Rita Lima.');
   });
 
-  it('a troca de professor é um botão dentro da coluna aberta que já abre a lista', async () => {
-    confirmarImportacaoNotas.mockResolvedValue({ data: { message: 'ok', criados: 0, atualizados: 0, removidos: 0, ignorados: 0 } });
+  it('coluna ligada pelo sistema não tem seletor nem botão para trocar o professor', () => {
     abrir();
 
-    // Na lista não há seletor nem botão; só a coluna aberta tem o botão.
-    expect(screen.queryByRole('combobox', { name: /^Professor da coluna/ })).not.toBeInTheDocument();
-    expect(screen.getAllByRole('combobox', { name: /^Trocar professor da coluna/ })).toHaveLength(1);
-
-    const trocar = screen.getByRole('combobox', { name: 'Trocar professor da coluna FÍSICA - LÔ' });
-    expect(trocar).toHaveValue('');
-    expect(trocar).toHaveDisplayValue('Trocar professor');
-    // Os professores do sistema chegam depois; quem já dá a matéria vem da prévia e é marcado como atual.
-    expect(await within(trocar).findByRole('option', { name: 'Toni Almeida' })).toBeInTheDocument();
-    expect(within(trocar).getByRole('option', { name: 'Lourdes Prado (atual)' })).toBeInTheDocument();
-
-    // Escolher de novo quem já dá a matéria não muda nada.
-    fireEvent.change(trocar, { target: { value: 'd:d1' } });
-    expect(trocar).toHaveDisplayValue('Trocar professor');
-    fireEvent.click(confirmar());
-    await screen.findByRole('status');
-    expect(conferenciaEnviada().colunas[0]).toMatchObject({ turma_disciplina_id: 'd1', trocada: false });
+    // A primeira coluna já vem aberta: nem na lista nem dentro dela há como trocar o professor.
+    expect(screen.getByRole('button', { name: 'FÍSICA - LÔ' })).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.queryByRole('combobox', { name: /professor da coluna/i })).not.toBeInTheDocument();
+    expect(screen.getByText('Física - Lourdes Prado', { selector: 'span' })).toBeInTheDocument();
+    expect(screen.getByText('Inglês - Helena Vaz', { selector: 'span' })).toBeInTheDocument();
   });
 
   it('peso e tipo fora do prazo avisam e pedem confirmação, porque valem para a turma', async () => {
