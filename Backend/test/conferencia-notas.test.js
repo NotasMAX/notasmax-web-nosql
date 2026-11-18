@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   calcularNotas,
+  completarSimulados,
   ligarColuna,
   montarEstadoDaConfirmacao,
   montarOperacoes,
@@ -12,6 +13,7 @@ import {
 } from '../services/conferenciaNotas.js';
 import {
   calcularNotas as calcularNotasDaTela,
+  completarSimulados as completarSimuladosDaTela,
   validarConferencia as validarConferenciaDaTela,
 } from '../../Frontend/src/utils/conferenciaNotas.js';
 
@@ -26,6 +28,7 @@ const conteudo = (turma_disciplina_id, extras = {}) => ({
   peso: 30,
   pesoOriginal: 30,
   quantidade_questoes: 3,
+  questoesOriginal: 3,
   alunosComResultado: 4,
   acertosAtuais: null,
   ...extras,
@@ -123,11 +126,53 @@ test('blocks two columns linked to the same disciplina, on both of them', () => 
   assert.match(bloqueios[0].mensagem, /B \("COLUNA B"\) e C \("COLUNA C"\).*Física - Lourdes Prado/);
 });
 
-test('blocks a SIM line without a simulado', () => {
+test('a SIM line without a simulado becomes a new simulado that needs the number of questions', () => {
+  const estado = estadoBase({ colunas: [coluna('B', 'd1', { fator: 0.3 }), coluna('C', 'd3')] });
+  estado.linhas.push({ numero: 7, celulas: [celula('B', 7, 1)] });
+  const completo = completarSimulados(estado, new Date(2026, 10, 18, 15));
+  const novo = completo.simulados.find(({ numero }) => numero === 7);
+
+  assert.equal(novo._id, 'novo-7');
+  assert.equal(novo.tipo, 'objetivo');
+  assert.equal(novo.data_realizacao, new Date(2026, 10, 18).toISOString());
+  assert.deepEqual(novo.conteudos.map(({ turma_disciplina_id, peso, quantidade_questoes }) => [turma_disciplina_id, peso, quantidade_questoes]), [['d1', 30, ''], ['d3', '', '']]);
+
+  const { bloqueios, avisos } = validarConferencia(completo);
+  assert.deepEqual(codigos(avisos), ['SIMULADO_NOVO']);
+  assert.equal(avisos[0].mensagem, 'SIM 7: não está cadastrado e será criado ao confirmar, para a turma toda, como objetivo, com data 18/11/2026.');
+  assert.deepEqual(codigos(bloqueios), ['QUESTOES_INVALIDAS', 'QUESTOES_INVALIDAS', 'PESO_INVALIDO']);
+});
+
+test('a new simulado with questions, weight and date has only the warning', () => {
   const estado = estadoBase();
   estado.linhas.push({ numero: 7, celulas: [celula('B', 7, 1)] });
+  const completo = completarSimulados(estado, AGORA);
+  completo.simulados[2].conteudos = completo.simulados[2].conteudos.map((c) => ({ ...c, quantidade_questoes: 5, peso: 20 }));
 
-  assert.equal(validarConferencia(estado).bloqueios[0].mensagem, 'A linha SIM 7 não tem simulado cadastrado para esta turma no 2º bimestre.');
+  assert.deepEqual(codigos(validarConferencia(completo).bloqueios), []);
+  assert.deepEqual(calcularNotas(completo, 'd1').totalQuestoes, 11);
+});
+
+test('blocks a new simulado without date or with a number the screens cannot show', () => {
+  const estado = estadoBase();
+  estado.linhas.push({ numero: 11, celulas: [celula('B', 11, 1)] });
+  const completo = completarSimulados(estado, AGORA);
+  completo.simulados[2] = { ...completo.simulados[2], data_realizacao: '' };
+
+  assert.deepEqual(codigos(validarConferencia(completo).bloqueios).filter((c) => c !== 'QUESTOES_INVALIDAS' && c !== 'PESO_INVALIDO'), ['SIM_NUMERO_FORA_DO_LIMITE', 'DATA_INVALIDA']);
+});
+
+test('completing twice keeps what the admin typed and drops a new disciplina whose column changed', () => {
+  const estado = estadoBase({ simulados: [simulado(1, { conteudos: [conteudo('d3')] }), simulado(2)] });
+  const completo = completarSimulados(estado, AGORA);
+  completo.simulados[0].conteudos[1].quantidade_questoes = 4;
+
+  assert.equal(completarSimulados(completo, AGORA).simulados[0].conteudos[1].quantidade_questoes, 4);
+  assert.equal(completarSimulados(completo, AGORA).simulados[0], completo.simulados[0]);
+
+  const trocada = completarSimulados({ ...completo, colunas: [coluna('B', 'd2'), coluna('C', 'd3')] }, AGORA);
+  assert.deepEqual(trocada.simulados[0].conteudos.map(({ turma_disciplina_id }) => turma_disciplina_id), ['d3', 'd2']);
+  assert.equal(trocada.simulados[0].conteudos[1].quantidade_questoes, '');
 });
 
 test('blocks a number shared by two simulados', () => {
@@ -142,7 +187,7 @@ test('blocks invalid acertos, even on a column still without disciplina', () => 
   const { bloqueios } = validarConferencia(estado);
 
   assert.ok(codigos(bloqueios).includes('ACERTOS_INVALIDO'));
-  assert.ok(bloqueios.some(({ mensagem }) => mensagem === 'Célula B4: "ausente" não é válido. Use um número inteiro de acertos, "não fez" ou "faltou".'));
+  assert.ok(bloqueios.some(({ mensagem }) => mensagem === 'Célula B4: "ausente" não é válido. Use um número inteiro de 0 para cima; qualquer texto vale como nulo.'));
 });
 
 test('blocks more acertos than questions', () => {
@@ -154,13 +199,46 @@ test('blocks more acertos than questions', () => {
   assert.equal(bloqueios[0].mensagem, 'Célula B4: 9 acertos é mais do que as 3 questões de Física - Lourdes Prado no simulado 1.');
 });
 
-test('blocks acertos of a disciplina that is not in the simulado, but not an absent cell', () => {
+test('acertos of a disciplina that is not in the simulado add it as a new responsible, but not an absent cell', () => {
   const semFisica = [conteudo('d3')];
   const estado = estadoBase({ simulados: [simulado(1, { conteudos: semFisica }), simulado(2)] });
-  assert.deepEqual(codigos(validarConferencia(estado).bloqueios), ['DISCIPLINA_FORA_DO_SIMULADO']);
+  const completo = completarSimulados(estado, AGORA);
+  const { bloqueios, avisos } = validarConferencia(completo);
+
+  assert.deepEqual(codigos(avisos), ['NOVO_RESPONSAVEL']);
+  assert.equal(avisos[0].mensagem, 'Simulado 1: Física - Lourdes Prado não fazia parte do simulado e será adicionada a ele, para a turma toda.');
+  assert.equal(avisos[0].coluna, 'B');
+  assert.deepEqual(codigos(bloqueios), ['QUESTOES_INVALIDAS', 'PESO_INVALIDO']);
+
+  completo.simulados[0].conteudos[1] = { ...completo.simulados[0].conteudos[1], quantidade_questoes: 3, peso: 30 };
+  assert.deepEqual(validarConferencia(completo).bloqueios, []);
 
   estado.linhas[0].celulas[0] = { coluna: 'B', celula: 'B4', status: 'nao_fez' };
-  assert.deepEqual(validarConferencia(estado).bloqueios, []);
+  assert.deepEqual(validarConferencia(completarSimulados(estado, AGORA)), { bloqueios: [], avisos: [] });
+});
+
+test('warns that a disciplina chosen in the review is only created on confirm, with its new subject', () => {
+  const nova = { _id: 'nova-1', materia: 'Artes', professor: 'Rita Lima', materia_id: null, professor_id: 'p9', nova: true };
+  const estado = estadoBase({ disciplinas: [...disciplinas, nova], colunas: [coluna('B', 'd1'), coluna('C', 'nova-1', { cabecalhoOriginal: 'ARTES' })] });
+  const mensagens = (atual) => validarConferencia(atual).avisos.filter(({ codigo }) => codigo === 'DISCIPLINA_NOVA').map(({ mensagem, coluna: letra }) => `${letra}: ${mensagem}`);
+
+  assert.deepEqual(mensagens(estado), ['C: Coluna C ("ARTES"): Artes - Rita Lima será cadastrada na turma ao confirmar, com a matéria nova Artes.']);
+  assert.deepEqual(mensagens({ ...estado, disciplinas: [...disciplinas, { ...nova, materia_id: 'm1' }] }), ['C: Coluna C ("ARTES"): Artes - Rita Lima será cadastrada na turma ao confirmar.']);
+});
+
+test('warns about changed questions, blocks invalid ones and compares the acertos with the new number', () => {
+  const alterada = estadoBase({ simulados: [simulado(1, { conteudos: [conteudo('d1', { quantidade_questoes: 5 }), conteudo('d3')] }), simulado(2)] });
+  const { avisos } = validarConferencia(alterada);
+  assert.deepEqual(codigos(avisos), ['QUESTOES_ALTERADAS']);
+  assert.equal(avisos[0].mensagem, 'Simulado 1, Física - Lourdes Prado: a troca do número de questões vale para todos os alunos da turma e recalcula a nota deles. Alunos com resultado lançado: 4.');
+
+  const menor = estadoBase({ simulados: [simulado(1, { conteudos: [conteudo('d1', { quantidade_questoes: 1 }), conteudo('d3')] }), simulado(2)] });
+  assert.deepEqual(codigos(validarConferencia(menor).bloqueios), ['ACERTOS_ACIMA_DO_LIMITE']);
+
+  for (const quantidade_questoes of ['', 0, 101, 2.5]) {
+    const invalida = estadoBase({ simulados: [simulado(1, { conteudos: [conteudo('d1', { quantidade_questoes }), conteudo('d3')] }), simulado(2)] });
+    assert.deepEqual(codigos(validarConferencia(invalida).bloqueios), ['QUESTOES_INVALIDAS']);
+  }
 });
 
 for (const peso of [0, -1, 101, 12.5, '', Number.NaN]) {
@@ -451,6 +529,35 @@ test('refuses changes to simulados and disciplinas that are not in the class', (
   assert.deepEqual(codigos(bloqueios), ['SIMULADO_INVALIDO', 'TIPO_INVALIDO', 'SIMULADO_INVALIDO']);
 });
 
+test('refuses new items that do not fit the current data', () => {
+  const { bloqueios } = confirmar({
+    questoes: [{ simulado_id: 's1', turma_disciplina_id: 'nao-existe', quantidade_questoes: 4 }],
+    conteudosNovos: [
+      { simulado_id: 's1', turma_disciplina_id: 'de-outra-turma', quantidade_questoes: 4, peso: 10 },
+      { simulado_id: 's1', turma_disciplina_id: 'd1', quantidade_questoes: 4, peso: 10 },
+    ],
+    novos: [
+      { numero: 'dois', tipo: 'objetivo', data_realizacao: '2026-11-18T03:00:00.000Z', conteudos: [] },
+      { numero: 2, tipo: 'oral', data_realizacao: '2026-11-18T03:00:00.000Z', conteudos: [] },
+      { numero: 3, tipo: 'objetivo', data_realizacao: '2026-11-18T03:00:00.000Z', conteudos: [{ turma_disciplina_id: 'de-outra-turma', quantidade_questoes: 2, peso: 10 }] },
+    ],
+  });
+
+  assert.deepEqual(codigos(bloqueios), ['SIMULADO_INVALIDO', 'SIMULADO_INVALIDO', 'SIMULADO_INVALIDO', 'SIMULADO_INVALIDO', 'TIPO_INVALIDO', 'SIMULADO_INVALIDO']);
+  assert.equal(bloqueios[2].mensagem, 'Simulado 1: a disciplina foi adicionada enquanto a tela estava aberta. Importe de novo.');
+});
+
+test('a new simulado from the screen keeps its values, and a missing date blocks', () => {
+  const { estado } = confirmar({
+    linhas: [{ numero: 1, celulas: [{ coluna: 'B', celula: 'B4', acertos: 1 }] }, { numero: 4, celulas: [{ coluna: 'B', celula: 'B7', acertos: 2 }] }],
+    novos: [{ numero: 4, tipo: 'dissertativo', data_realizacao: 'ontem', conteudos: [{ turma_disciplina_id: 'd1', quantidade_questoes: 5, peso: 10 }] }],
+  });
+  const novo = estado.simulados.find(({ numero }) => numero === 4);
+
+  assert.deepEqual([novo.tipo, novo.data_realizacao, novo.conteudos[0].quantidade_questoes, novo.conteudos[0].peso], ['dissertativo', '', 5, 10]);
+  assert.deepEqual(codigos(validarConferencia(estado).bloqueios), ['DATA_INVALIDA']);
+});
+
 test('a missing payload builds an empty state', () => {
   const { estado } = montarEstadoDaConfirmacao({ payload: {}, disciplinas, simulados: [], aluno_id: 'a1', bimestre: 2, agora: AGORA });
   assert.deepEqual([estado.colunas, estado.linhas, estado.simulados], [[], [], []]);
@@ -485,7 +592,7 @@ const operar = (mudancas, simulados) => {
 test('updates the grade of a result that already exists', () => {
   const { operacoes, contagem } = operar({});
 
-  assert.deepEqual(contagem, { criados: 0, atualizados: 1, removidos: 0, ignorados: 0 });
+  assert.deepEqual(contagem, { criados: 0, atualizados: 1, removidos: 0, ignorados: 0, simuladosCriados: 0, disciplinasAdicionadas: 0 });
   assert.deepEqual(operacoes[0].updateOne.update, { $set: { 'conteudos.$[c].resultados.$[r].acertos': 1, 'conteudos.$[c].resultados.$[r].nota': 3.33, 'conteudos.$[c].resultados.$[r].updatedAt': AGORA } });
   assert.deepEqual(operacoes[0].updateOne.arrayFilters, [{ 'c.turma_disciplina_id': 'd1' }, { 'r.aluno_id': 'a1' }]);
 });
@@ -499,7 +606,7 @@ test('saves only the cell typed for a simulado missing from the sheet', () => {
     ],
   }, simulados);
 
-  assert.deepEqual(contagem, { criados: 0, atualizados: 1, removidos: 0, ignorados: 1 });
+  assert.deepEqual(contagem, { criados: 0, atualizados: 1, removidos: 0, ignorados: 1, simuladosCriados: 0, disciplinasAdicionadas: 0 });
   assert.equal(operacoes[0].updateOne.filter._id, 's2');
   assert.equal(operacoes[0].updateOne.update.$set['conteudos.$[c].resultados.$[r].acertos'], 3);
 });
@@ -508,14 +615,14 @@ test('creates the result of a student who had none', () => {
   const semResultado = simuladoDoBanco(1, { conteudos: [{ turma_disciplina_id: 'd1', peso: 30, quantidade_questoes: 3, resultados: [] }] });
   const { operacoes, contagem } = operar({}, [semResultado]);
 
-  assert.deepEqual(contagem, { criados: 1, atualizados: 0, removidos: 0, ignorados: 0 });
+  assert.deepEqual(contagem, { criados: 1, atualizados: 0, removidos: 0, ignorados: 0, simuladosCriados: 0, disciplinasAdicionadas: 0 });
   assert.deepEqual(operacoes[0].updateOne.update, { $push: { 'conteudos.$[c].resultados': { aluno_id: 'a1', acertos: 1, nota: 3.33, createdAt: AGORA, updatedAt: AGORA } } });
 });
 
 test('removes the result when the sheet says the student did not take it', () => {
   const { operacoes, contagem } = operar({ linhas: [{ numero: 1, celulas: [{ coluna: 'B', celula: 'B4', acertos: null }] }] });
 
-  assert.deepEqual(contagem, { criados: 0, atualizados: 0, removidos: 1, ignorados: 0 });
+  assert.deepEqual(contagem, { criados: 0, atualizados: 0, removidos: 1, ignorados: 0, simuladosCriados: 0, disciplinasAdicionadas: 0 });
   assert.deepEqual(operacoes[0].updateOne.update, { $pull: { 'conteudos.$[c].resultados': { aluno_id: 'a1' } } });
 });
 
@@ -524,7 +631,7 @@ test('ignores an unchanged grade, an absence without a result and a cell without
     colunas: [
       { coluna: 'B', cabecalho: 'a', cabecalhoOriginal: 'A', turma_disciplina_id: 'd1' },
       { coluna: 'C', cabecalho: 'b', cabecalhoOriginal: 'B', turma_disciplina_id: 'd3' },
-      { coluna: 'D', cabecalho: 'c', cabecalhoOriginal: 'C', turma_disciplina_id: 'd2' },
+      { coluna: 'D', cabecalho: 'c', cabecalhoOriginal: 'C', turma_disciplina_id: null },
     ],
     linhas: [{ numero: 1, celulas: [
       { coluna: 'B', celula: 'B4', acertos: 2 },
@@ -534,7 +641,7 @@ test('ignores an unchanged grade, an absence without a result and a cell without
   });
 
   assert.deepEqual(operacoes, []);
-  assert.deepEqual(contagem, { criados: 0, atualizados: 0, removidos: 0, ignorados: 2 });
+  assert.deepEqual(contagem, { criados: 0, atualizados: 0, removidos: 0, ignorados: 2, simuladosCriados: 0, disciplinasAdicionadas: 0 });
 });
 
 test('writes only the type and the weight that changed', () => {
@@ -559,7 +666,11 @@ const estadosDeParidade = () => {
   const acima = estadoBase();
   acima.linhas[0].celulas[0] = celula('B', 1, 9);
   const semSimulado = estadoBase();
-  semSimulado.linhas.push({ numero: 7, celulas: [celula('B', 7, 1)] });
+  semSimulado.linhas.push({ numero: 11, celulas: [celula('B', 11, 1)] });
+  const semData = estadoBase();
+  semData.linhas.push({ numero: 7, celulas: [celula('B', 7, 1)] });
+  const semDataCompleto = completarSimulados(semData, AGORA);
+  semDataCompleto.simulados[2] = { ...semDataCompleto.simulados[2], data_realizacao: '' };
   const naoFezComNota = estadoBase({ simulados: [simulado(1, { conteudos: [conteudo('d1', { acertosAtuais: 1 }), conteudo('d3')] }), simulado(2)] });
   naoFezComNota.linhas[0].celulas[0] = { coluna: 'B', celula: 'B4', status: 'nao_fez' };
 
@@ -568,12 +679,18 @@ const estadosDeParidade = () => {
     invalida,
     vazia,
     acima,
-    semSimulado,
+    semSimulado: completarSimulados(semSimulado, AGORA),
+    semData: semDataCompleto,
     naoFezComNota,
     semDono: estadoBase({ colunas: [coluna('B', null), coluna('C', 'd3')] }),
     colunasIguais: estadoBase({ colunas: [coluna('B', 'd1'), coluna('C', 'd1')] }),
     duplicado: estadoBase({ simulados: [simulado(1), simulado(1, { _id: 'x' }), simulado(2)] }),
-    foraDoSimulado: estadoBase({ simulados: [simulado(1, { conteudos: [conteudo('d3')] }), simulado(2)] }),
+    foraDoSimulado: completarSimulados(estadoBase({ simulados: [simulado(1, { foraDoPrazo: true, conteudos: [conteudo('d3')] }), simulado(2)] }), AGORA),
+    disciplinaNova: estadoBase({
+      disciplinas: [...disciplinas, { _id: 'nova-1', materia: 'Artes', professor: 'Rita Lima', materia_id: null, professor_id: 'p9', nova: true }],
+      colunas: [coluna('B', 'd1'), coluna('C', 'nova-1')],
+    }),
+    questoesAlteradas: estadoBase({ simulados: [simulado(1, { conteudos: [conteudo('d1', { quantidade_questoes: 5 }), conteudo('d3')] }), simulado(2)] }),
     pesoInvalido: estadoBase({ simulados: [simulado(1, { conteudos: [conteudo('d1', { peso: 500 }), conteudo('d3')] }), simulado(2)] }),
     pesoAlteradoForaDoPrazo: estadoBase({ simulados: [simulado(1, { foraDoPrazo: true, conteudos: [conteudo('d1', { peso: 40 }), conteudo('d3')] }), simulado(2)] }),
     tipoAlterado: estadoBase({ simulados: [simulado(1, { tipo: 'dissertativo' }), simulado(2)] }),
@@ -592,6 +709,7 @@ for (const [nome, estado] of Object.entries(estadosDeParidade())) {
   test(`the screen and the server give the same result: ${nome}`, () => {
     assert.deepEqual(validarConferenciaDaTela(estado), validarConferencia(estado));
     assert.deepEqual(calcularNotasDaTela(estado, 'd1'), calcularNotas(estado, 'd1'));
+    assert.deepEqual(completarSimuladosDaTela(estado, AGORA), completarSimulados(estado, AGORA));
   });
 }
 
@@ -603,8 +721,8 @@ test('the parity states cover every problem code', () => {
 
   assert.deepEqual([...vistos].sort(), [
     'ACERTOS_ACIMA_DO_LIMITE', 'ACERTOS_INVALIDO', 'CELULAS_VAZIAS', 'COLUNAS_MESMA_DISCIPLINA', 'COLUNA_SEM_DISCIPLINA',
-    'DATA_FUTURA', 'DISCIPLINA_FORA_DO_SIMULADO', 'FATOR_DIFERENTE', 'FORA_DO_PRAZO', 'JA_TEM_RESULTADO', 'NOTA_ACIMA_DE_10',
-    'NOTA_DISSERTATIVA_DIFERENTE', 'PESO_ALTERADO', 'PESO_INVALIDO', 'SIMULADO_DUPLICADO', 'SIMULADO_FORA_DA_PLANILHA',
-    'SIM_SEM_SIMULADO', 'TIPO_ALTERADO',
+    'DATA_FUTURA', 'DATA_INVALIDA', 'DISCIPLINA_NOVA', 'FATOR_DIFERENTE', 'FORA_DO_PRAZO', 'JA_TEM_RESULTADO', 'NOTA_ACIMA_DE_10',
+    'NOTA_DISSERTATIVA_DIFERENTE', 'NOVO_RESPONSAVEL', 'PESO_ALTERADO', 'PESO_INVALIDO', 'QUESTOES_ALTERADAS', 'QUESTOES_INVALIDAS',
+    'SIMULADO_DUPLICADO', 'SIMULADO_FORA_DA_PLANILHA', 'SIMULADO_NOVO', 'SIM_NUMERO_FORA_DO_LIMITE', 'TIPO_ALTERADO',
   ]);
 });

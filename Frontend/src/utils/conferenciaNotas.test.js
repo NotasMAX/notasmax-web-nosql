@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { decimal, interpretarAcertos, interpretarPeso, montarConfirmacao } from './conferenciaNotas';
+import { dataDoCampo, dataParaCampo, decimal, interpretarAcertos, interpretarPeso, montarConfirmacao } from './conferenciaNotas';
 
 describe('conferenciaNotas', () => {
   it('mostra decimal com vírgula e duas casas', () => {
@@ -12,11 +12,11 @@ describe('conferenciaNotas', () => {
     expect(interpretarAcertos(' 3 ')).toEqual({ status: 'acertos', acertos: 3 });
     expect(interpretarAcertos('')).toEqual({ status: 'nao_fez' });
     expect(interpretarAcertos('2,5')).toEqual({ status: 'invalida', bruto: '2,5' });
-    expect(interpretarAcertos('faltou')).toEqual({ status: 'nao_fez' });
-    expect(interpretarAcertos(' FALTOU ')).toEqual({ status: 'nao_fez' });
-    expect(interpretarAcertos('Não fez')).toEqual({ status: 'nao_fez' });
-    expect(interpretarAcertos('ausente')).toEqual({ status: 'invalida', bruto: 'ausente' });
-    expect(interpretarAcertos('nulo')).toEqual({ status: 'invalida', bruto: 'nulo' });
+    expect(interpretarAcertos('-1')).toEqual({ status: 'invalida', bruto: '-1' });
+    expect(interpretarAcertos('faltou')).toEqual({ status: 'nao_fez', bruto: 'faltou' });
+    expect(interpretarAcertos('Não fez')).toEqual({ status: 'nao_fez', bruto: 'Não fez' });
+    expect(interpretarAcertos('ausente')).toEqual({ status: 'nao_fez', bruto: 'ausente' });
+    expect(interpretarAcertos('2,')).toEqual({ status: 'nao_fez', bruto: '2,' });
   });
 
   it('interpreta o que o admin digita no peso', () => {
@@ -27,6 +27,7 @@ describe('conferenciaNotas', () => {
 
   it('manda só o tipo e o peso que mudaram, e não fez como nulo', () => {
     const estado = {
+      disciplinas: [{ _id: 'd1', materia: 'Física', professor: 'Lourdes Prado', materia_id: 'm1', professor_id: 'p1' }],
       colunas: [{ coluna: 'B', cabecalho: 'fisica', cabecalhoOriginal: 'FÍSICA', fator: 0.3, notaDissertativaPlanilha: 0, turma_disciplina_id: 'd1', trocada: true, origemLigacao: null }],
       linhas: [{
         numero: 1,
@@ -61,6 +62,56 @@ describe('conferenciaNotas', () => {
       }],
       tipos: [{ simulado_id: 's1', tipo: 'dissertativo' }],
       pesos: [{ simulado_id: 's1', turma_disciplina_id: 'd1', peso: 40 }],
+      questoes: [],
+      conteudosNovos: [],
+      novos: [],
+      disciplinasNovas: [],
     });
+  });
+
+  it('manda as questões alteradas, as disciplinas novas e os simulados novos à parte', () => {
+    const estado = {
+      // A disciplina nova só vai quando alguma coluna a usa; a escolhida e depois trocada fica de fora.
+      disciplinas: [
+        { _id: 'nova-1', nova: true, materia: 'Artes', materia_id: null, professor: 'Rita Lima', professor_id: 'p4' },
+        { _id: 'nova-2', nova: true, materia: 'Games', materia_id: 'm9', professor: 'Toni Almeida', professor_id: 'p3' },
+      ],
+      colunas: [{ coluna: 'B', turma_disciplina_id: 'nova-1' }],
+      linhas: [],
+      simulados: [
+        {
+          _id: 's1', tipo: 'objetivo', tipoOriginal: 'objetivo',
+          conteudos: [
+            { turma_disciplina_id: 'd1', peso: 30, pesoOriginal: 30, quantidade_questoes: 5, questoesOriginal: 3 },
+            { turma_disciplina_id: 'd2', novo: true, peso: 20, pesoOriginal: null, quantidade_questoes: 4, questoesOriginal: null },
+          ],
+        },
+        {
+          _id: 'novo-7', novo: true, numero: 7, tipo: 'dissertativo', tipoOriginal: 'dissertativo', data_realizacao: '2026-11-18T03:00:00.000Z',
+          conteudos: [{ turma_disciplina_id: 'd1', novo: true, peso: 10, pesoOriginal: null, quantidade_questoes: 2, questoesOriginal: null }],
+        },
+      ],
+    };
+
+    const enviado = montarConfirmacao({ estado, aluno_id: 'a1', turma_id: 't1', bimestre: '2', aba: 'x' });
+
+    expect(enviado.tipos).toEqual([]);
+    expect(enviado.pesos).toEqual([]);
+    expect(enviado.questoes).toEqual([{ simulado_id: 's1', turma_disciplina_id: 'd1', quantidade_questoes: 5 }]);
+    expect(enviado.conteudosNovos).toEqual([{ simulado_id: 's1', turma_disciplina_id: 'd2', quantidade_questoes: 4, peso: 20 }]);
+    expect(enviado.novos).toEqual([{
+      numero: 7, tipo: 'dissertativo', data_realizacao: '2026-11-18T03:00:00.000Z',
+      conteudos: [{ turma_disciplina_id: 'd1', quantidade_questoes: 2, peso: 10 }],
+    }]);
+    expect(enviado.disciplinasNovas).toEqual([{ id: 'nova-1', materia_id: null, materia_nome: 'Artes', professor_id: 'p4' }]);
+  });
+
+  it('converte a data entre o campo e a meia-noite local', () => {
+    const data = dataDoCampo('2026-11-18');
+    expect(data).toBe(new Date(2026, 10, 18).toISOString());
+    expect(dataParaCampo(data)).toBe('2026-11-18');
+    expect(dataDoCampo('')).toBe('');
+    expect(dataParaCampo('')).toBe('');
+    expect(dataParaCampo('não é data')).toBe('');
   });
 });

@@ -35,7 +35,7 @@ Outros logins, com a mesma senha: `lourdes.prado@notasmax.test` (professor) e `l
 | `08-bloqueios-estrutura` | Qualquer aluno | Bloqueia e pede a aba. Cada uma das 5 abas tem um erro de estrutura |
 | `09-nao-e-planilha` | Qualquer aluno | Bloqueia no envio. O Excel também não abre esse arquivo |
 | `10-nota-maxima-acima-de-10` | Rafael Lima, 2º bimestre | Importa, com todos os acertos no máximo. Subindo o peso de `FÍSICA - LÔ` para 100 nos 6 SIMs, a nota vai a 18 e bloqueia; voltando o peso, libera |
-| `11-celulas-nulas` | Qualquer aluno do 1º EM, 2º bimestre | Importa, com aviso de célula vazia. No SIM 1, as colunas B (`faltou`), C (vazia) e D (`não fez`) aparecem como `nulo` |
+| `11-celulas-nulas` | Qualquer aluno do 1º EM, 2º bimestre | Importa, com aviso de célula vazia. No SIM 1, as colunas B (`faltou`), C (vazia) e D (`não fez`) aparecem como `nulo`. Qualquer outro texto também vira `nulo` |
 
 ## Mensagens exatas de bloqueio
 
@@ -43,16 +43,16 @@ Conferidas pelo navegador, com a seed.
 
 ### `06-bloqueios-acertos`
 
-- Célula B4: "ausente" não é válido. Use um número inteiro de acertos, "não fez" ou "faltou".
-- Célula C4: "-1" não é válido. Use um número inteiro de acertos, "não fez" ou "faltou".
-- Célula D4: "1,5" não é válido. Use um número inteiro de acertos, "não fez" ou "faltou".
+- Célula B4: "ausente" não bloqueia mais desde 18/11/2026: qualquer texto vale como `nulo`.
+- Célula C4: "-1" não é válido. Use um número inteiro de 0 para cima; qualquer texto vale como nulo.
+- Célula D4: "1,5" não é válido. Use um número inteiro de 0 para cima; qualquer texto vale como nulo.
 - Célula B5: 9 acertos é mais do que as 3 questões de Física - Lourdes Prado no simulado 2.
-- A linha SIM 7 não tem simulado cadastrado para esta turma no 2º bimestre.
+- SIM 7 não tem simulado cadastrado: aparece como "novo simulado", com o aviso "SIM 7: não está cadastrado e será criado ao confirmar...", e cada disciplina bloqueia com "Simulado 7, \<disciplina\>: o número de questões deve ser um inteiro de 1 a 100." até as questões serem preenchidas no lápis da linha. Esta mensagem é de 18/11/2026 e ainda não foi conferida no navegador.
 
 ### `07-bloqueios-colunas`
 
 - Coluna B ("FÍSICA"): escolha a disciplina da turma.
-- Coluna D ("ARTES"): escolha a disciplina da turma.
+- Coluna D ("ARTES"): escolha a disciplina da turma. A turma não tem Artes, nem o sistema: escolher um professor no seletor da coluna abre o formulário para dar nome à matéria. A matéria e a disciplina só são cadastradas ao confirmar.
 - Coluna J ("FÍSICA - ZECA"): escolha a disciplina da turma.
 - As colunas F ("MATEMÁTICA - ANA") e N ("MATEMÁTICA - TEIXEIRA") estão ligadas à mesma disciplina: Matemática - Ana Teixeira.
 

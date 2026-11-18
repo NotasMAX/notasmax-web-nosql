@@ -84,6 +84,19 @@
     @apply mt-1 max-h-48 list-disc overflow-y-auto pl-5 text-sm;
 }
 
+/* Título de Bloqueios e Avisos: um botão que abre e fecha a lista. */
+.painelBotao {
+    @apply flex w-full cursor-pointer items-center gap-2 text-left font-semibold;
+}
+
+.setaPainelFechada {
+    @apply h-4 w-4 shrink-0 -rotate-90 fill-current transition;
+}
+
+.setaPainelAberta {
+    @apply h-4 w-4 shrink-0 fill-current transition;
+}
+
 .linha {
     @apply relative grid min-h-[52px] w-full items-center rounded-lg border border-[#d9d9d9] bg-white px-[10px] py-[3px];
     box-shadow: 0 1px 4px 0 rgba(12, 12, 13, 0.05), inset 0 4px 4px -1px rgba(12, 12, 13, 0.05);
@@ -187,4 +200,59 @@
 
 .valorPlanilha {
     @apply ml-3 text-sm font-normal text-gray-500;
+}
+
+.campoData {
+    @apply ml-2 h-[36px] rounded-lg border border-[#8c8c8c] bg-white px-2 text-base font-normal text-black;
+}
+
+.etiquetaNova {
+    @apply ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-sm font-medium text-amber-800;
+}
+
+.novaDisciplina {
+    @apply flex flex-col gap-3 rounded-lg border border-[#8c8c8c] bg-gray-50 p-4 text-[#404040];
+}
+
+.novaDisciplinaCampos {
+    @apply grid gap-3 md:grid-cols-2;
+}
+
+.rotuloCampo {
+    @apply flex flex-col gap-1 text-base font-medium;
+}
+
+.campoTexto {
+    @apply h-[42px] w-full rounded-lg border border-[#8c8c8c] bg-white px-2 text-base font-medium text-black;
+}
+
+.textoAjuda {
+    @apply text-sm text-gray-600;
+}
+
+.disciplinaLigada {
+    @apply ml-7 text-sm font-normal text-gray-500;
+}
+
+.areaProfessor {
+    @apply flex min-w-0 items-center gap-3;
+}
+
+/* Seletor de professor da lista: compacto, com largura fixa para alinhar as colunas. */
+.seletorProfessor {
+    @apply h-[34px] w-[200px] max-w-full cursor-pointer rounded-lg border border-[#404040] bg-white px-2 text-sm font-medium text-[#404040] shadow-sm hover:bg-gray-50;
+}
+
+/* Seletor com cara de botão: um clique abre a lista de professores. */
+.botaoSeletor {
+    composes: seletorProfessor;
+}
+
+/* Campo de texto com sugestões: sem a seta que o Chrome desenha, para não parecer uma lista. */
+.campoSugestoes {
+    composes: campoTexto;
+}
+
+.campoSugestoes::-webkit-calendar-picker-indicator {
+    display: none !important;
 }

@@ -1,17 +1,23 @@
 import React, { useState } from "react";
-import { calcularNotas, decimal } from "../utils/conferenciaNotas";
+import { calcularNotas, dataParaCampo, decimal } from "../utils/conferenciaNotas";
+import NovaDisciplinaImportacao from "./NovaDisciplinaImportacao";
+import SeletorProfessorColuna from "./SeletorProfessorColuna";
+import SetaExpandir from "./SetaExpandir";
 import Style from "../styles/ImportacaoNotas.module.css";
 import iconeEditar from "../imgs/editar-linha.svg";
 
 const ROTULOS_DE_STATUS = {
     COLUNA_SEM_DISCIPLINA: "sem dono",
     COLUNAS_MESMA_DISCIPLINA: "disciplina repetida",
+    DISCIPLINA_NOVA: "disciplina nova",
     ACERTOS_INVALIDO: "acertos inválidos",
     ACERTOS_ACIMA_DO_LIMITE: "acertos acima do limite",
-    DISCIPLINA_FORA_DO_SIMULADO: "fora do simulado",
     PESO_INVALIDO: "peso inválido",
+    QUESTOES_INVALIDAS: "questões inválidas",
     NOTA_ACIMA_DE_10: "nota acima de 10",
+    NOVO_RESPONSAVEL: "novo responsável",
     PESO_ALTERADO: "peso alterado",
+    QUESTOES_ALTERADAS: "questões alteradas",
     FATOR_DIFERENTE: "peso diferente da planilha",
     NOTA_DISSERTATIVA_DIFERENTE: "dissertativa diferente",
     JA_TEM_RESULTADO: "já tinha nota",
@@ -20,15 +26,16 @@ const ROTULOS_DE_STATUS = {
 const TIPOS = { objetivo: "Objetivo", dissertativo: "Dissertativo" };
 
 function textoDoResultado(celula, conteudo) {
-    if (celula?.status === "acertos") return `${celula.acertos} / ${conteudo?.quantidade_questoes ?? "—"}`;
+    const questoes = conteudo?.quantidade_questoes === "" ? "?" : conteudo?.quantidade_questoes ?? "—";
+    if (celula?.status === "acertos") return `${celula.acertos} / ${questoes}`;
     if (celula?.status === "invalida") return celula.bruto;
     return "nulo";
 }
 
 function valorDoCampo(celula) {
     if (celula?.status === "acertos") return celula.acertos;
-    if (celula?.status === "invalida") return celula.bruto;
-    return "";
+    // Texto digitado continua no campo, sem destaque, e vale como nulo.
+    return celula?.bruto ?? "";
 }
 
 function celulaLancada(conteudo) {
@@ -37,8 +44,13 @@ function celulaLancada(conteudo) {
         : { status: "nao_fez" };
 }
 
-export default function ConferenciaColuna({ coluna, estado, bloqueios, avisos, aberta, onAlternar, onLigar, onTipo, onPeso, onAcertos }) {
+export default function ConferenciaColuna({
+    coluna, estado, bloqueios, avisos, aberta, materias = [], professores = [],
+    onAlternar, onLigar, onNovaDisciplina, onTipo, onPeso, onQuestoes, onData, onAcertos,
+}) {
     const [emEdicao, setEmEdicao] = useState([]);
+    // null: formulário fechado; id: aberto para dar nome à matéria do cabeçalho, com esse professor já escolhido.
+    const [professorDoFormulario, setProfessorDoFormulario] = useState(null);
     const { coluna: letra, cabecalhoOriginal, turma_disciplina_id: disciplinaId, notaDissertativaPlanilha } = coluna;
     const disciplina = estado.disciplinas.find(({ _id }) => _id === disciplinaId);
     const notas = disciplinaId ? calcularNotas(estado, disciplinaId) : null;
@@ -56,6 +68,34 @@ export default function ConferenciaColuna({ coluna, estado, bloqueios, avisos, a
         setEmEdicao((atuais) => (atuais.includes(numero) ? atuais.filter((n) => n !== numero) : [...atuais, numero]));
     };
 
+    // Na lista, o seletor só aparece quando há decisão a tomar: coluna sem dono ou disciplina repetida.
+    // Numa coluna ligada certa, a troca é o botão "Trocar professor", dentro da coluna aberta.
+    const repetida = bloqueios.some(({ codigo }) => codigo === "COLUNAS_MESMA_DISCIPLINA");
+    const mostrarSeletor = !disciplinaId || repetida;
+
+    const ligar = (id) => {
+        setProfessorDoFormulario(null);
+        onLigar(letra, id);
+    };
+
+    const ligarNova = (nova) => {
+        setProfessorDoFormulario(null);
+        onNovaDisciplina(letra, nova);
+    };
+
+    const seletor = (comoBotao) => (
+        <SeletorProfessorColuna
+            coluna={coluna}
+            disciplinas={estado.disciplinas}
+            materias={materias}
+            professores={professores}
+            comoBotao={comoBotao}
+            onEscolher={ligar}
+            onNovaDisciplina={ligarNova}
+            onMateriaNova={setProfessorDoFormulario}
+        />
+    );
+
     const status = bloqueios.length > 0
         ? { classe: Style.statusBloqueio, texto: `Bloqueio: ${ROTULOS_DE_STATUS[bloqueios[0].codigo]}` }
         : avisos.length > 0
@@ -65,31 +105,42 @@ export default function ConferenciaColuna({ coluna, estado, bloqueios, avisos, a
     return (
         <div className="flex flex-col gap-[10px]">
             <div className={`${Style.linha} ${Style.colunasResumo}`}>
-                <button type="button" className={Style.botaoCabecalho} aria-expanded={aberta} onClick={onAlternar}>
-                    <svg className={aberta ? Style.setaAberta : Style.setaFechada} viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                        <path fillRule="evenodd" clipRule="evenodd" d="M4.29289 8.29289C4.68342 7.90237 5.31658 7.90237 5.70711 8.29289L12 14.5858L18.2929 8.29289C18.6834 7.90237 19.3166 7.90237 19.7071 8.29289C20.0976 8.68342 20.0976 9.31658 19.7071 9.70711L12.7071 16.7071C12.3166 17.0976 11.6834 17.0976 11.2929 16.7071L4.29289 9.70711C3.90237 9.31658 3.90237 8.68342 4.29289 8.29289Z" />
-                    </svg>
-                    {cabecalhoOriginal}
-                </button>
-                <select
-                    className={Style.campoSelecao}
-                    aria-label={`Disciplina da coluna ${cabecalhoOriginal}`}
-                    value={disciplinaId ?? ""}
-                    onChange={(e) => onLigar(letra, e.target.value)}
-                >
-                    <option value="">Escolher</option>
-                    {estado.disciplinas.map(({ _id, materia, professor }) => (
-                        <option key={_id} value={_id}>{materia} - {professor}</option>
-                    ))}
-                </select>
+                <div className="flex min-w-0 flex-col">
+                    <button type="button" className={Style.botaoCabecalho} aria-expanded={aberta} onClick={onAlternar}>
+                        <SetaExpandir className={aberta ? Style.setaAberta : Style.setaFechada} />
+                        {cabecalhoOriginal}
+                    </button>
+                    {disciplina && !mostrarSeletor && (
+                        <span className={Style.disciplinaLigada}>
+                            {disciplina.materia} - {disciplina.professor}
+                            {/* Escolhida na revisão: só é cadastrada na turma ao confirmar. */}
+                            {disciplina.nova && <span className={Style.etiquetaNova}>nova</span>}
+                        </span>
+                    )}
+                </div>
+                <div className={Style.areaProfessor}>
+                    {mostrarSeletor && seletor(false)}
+                </div>
                 <span className={status.classe}>{status.texto}</span>
             </div>
 
+            {professorDoFormulario !== null && (
+                <NovaDisciplinaImportacao
+                    cabecalhoOriginal={cabecalhoOriginal}
+                    professorInicial={professorDoFormulario}
+                    onCancelar={() => setProfessorDoFormulario(null)}
+                    onCriada={ligarNova}
+                />
+            )}
+
             {aberta && (
                 <div className={Style.corpoColuna}>
-                    <p className={Style.tituloDisciplina}>
-                        {disciplina ? `${disciplina.materia} - ${disciplina.professor}` : cabecalhoOriginal}
-                    </p>
+                    <div className="flex flex-wrap items-center gap-4">
+                        <p className={Style.tituloDisciplina}>
+                            {disciplina ? `${disciplina.materia} - ${disciplina.professor}` : cabecalhoOriginal}
+                        </p>
+                        {disciplina && !mostrarSeletor && seletor(true)}
+                    </div>
 
                     <div className={`${Style.cabecalhoTabela} ${Style.colunasTabela}`}>
                         <p className={Style.tituloColuna}>Simulado</p>
@@ -109,11 +160,24 @@ export default function ConferenciaColuna({ coluna, estado, bloqueios, avisos, a
 
                         return (
                             <div key={`${numero}-${indice}`} className={`${Style.linha} ${Style.colunasTabela}`}>
-                                <p className={Style.textoColuna}>
+                                <div className={Style.textoColuna}>
                                     {numero}
-                                    {simulado && <span className={Style.dataSimulado}>{new Date(simulado.data_realizacao).toLocaleDateString("pt-BR")}</span>}
+                                    {simulado && !(editando && simulado.novo) && simulado.data_realizacao && (
+                                        <span className={Style.dataSimulado}>{new Date(simulado.data_realizacao).toLocaleDateString("pt-BR")}</span>
+                                    )}
+                                    {editando && simulado?.novo && (
+                                        <input
+                                            type="date"
+                                            className={Style.campoData}
+                                            aria-label={`Data de realização do simulado ${numero}`}
+                                            value={dataParaCampo(simulado.data_realizacao)}
+                                            onChange={(e) => onData(simulado._id, e.target.value)}
+                                        />
+                                    )}
+                                    {simulado?.novo && <span className={Style.etiquetaNova}>novo simulado</span>}
+                                    {!simulado?.novo && conteudo?.novo && <span className={Style.etiquetaNova}>novo responsável</span>}
                                     {!daPlanilha && <span className={Style.dataSimulado}>fora da planilha</span>}
-                                </p>
+                                </div>
                                 {editando && simulado ? (
                                     <select
                                         className={Style.campoTipo}
@@ -147,7 +211,21 @@ export default function ConferenciaColuna({ coluna, estado, bloqueios, avisos, a
                                             value={valorDoCampo(celula)}
                                             onChange={(e) => onAcertos(numero, letra, e.target.value)}
                                         />
-                                        <span>/ {conteudo?.quantidade_questoes ?? "—"}</span>
+                                        <span>/</span>
+                                        {conteudo ? (
+                                            <input
+                                                type="number"
+                                                min="1"
+                                                max="100"
+                                                className={Style.campoAcertos}
+                                                placeholder="questões"
+                                                aria-label={`Questões do simulado ${numero} em ${cabecalhoOriginal}`}
+                                                value={conteudo.quantidade_questoes}
+                                                onChange={(e) => onQuestoes(simulado._id, disciplinaId, e.target.value)}
+                                            />
+                                        ) : (
+                                            <span>—</span>
+                                        )}
                                     </div>
                                 ) : (
                                     <p className={celula?.status === "invalida" ? Style.textoInvalido : Style.textoResultado}>

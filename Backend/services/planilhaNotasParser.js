@@ -12,7 +12,6 @@ const CAMPOS_DE_REFERENCIA = new Map([
 const TOLERANCIA = 0.001;
 
 // Além da célula vazia, estes textos valem como sem nota. O sistema mostra todos como "nulo".
-const TEXTOS_SEM_NOTA = ['nao fez', 'faltou'];
 
 const problema = (codigo, mensagem, celulas = []) => ({ codigo, mensagem, celulas });
 
@@ -76,9 +75,11 @@ const separarCabecalho = (texto) => {
 const lerAcertos = (celula) => {
     const valor = valorDaCelula(celula);
     if (valor === null || String(valor).trim() === '') return { status: 'vazia' };
-    if (TEXTOS_SEM_NOTA.includes(normalizarTexto(valor))) return { status: 'nao_fez' };
 
     const acertos = paraNumero(valor);
+    // Qualquer coisa escrita que não seja número ("faltou", "não fez", "-", erro de fórmula) fica sem nota.
+    if (acertos === null) return { status: 'nao_fez' };
+    // Número negativo ou decimal parece acerto digitado errado: bloqueia em vez de apagar a nota.
     // O app mobile lê os acertos como inteiro, então decimal também não entra.
     if (!Number.isInteger(acertos) || acertos < 0) {
         return { status: 'invalida', bruto: typeof valor === 'number' ? comVirgula(valor) : valor.error ?? String(valor) };
@@ -186,7 +187,7 @@ const lerAba = (planilha) => {
         });
 
         celulas.filter(({ status }) => status === 'invalida').forEach(({ celula, bruto }) => {
-            bloqueios.push(problema('ACERTOS_INVALIDO', `Célula ${celula}: "${bruto}" não é válido. Use um número inteiro de acertos, "não fez" ou "faltou".`, [celula]));
+            bloqueios.push(problema('ACERTOS_INVALIDO', `Célula ${celula}: "${bruto}" não é válido. Use um número inteiro de 0 para cima; qualquer texto vale como nulo.`, [celula]));
         });
 
         const vazias = celulas.filter(({ status }) => status === 'vazia').map(({ celula }) => celula);

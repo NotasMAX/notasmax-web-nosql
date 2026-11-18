@@ -8,6 +8,13 @@ import ImportacaoNotas from '../Models/ImportacaoNotas.js';
 import { lerPlanilhaNotas } from '../services/planilhaNotasParser.js';
 import { armazenamentoPlanilhas } from '../services/armazenamentoPlanilhas.js';
 import {
+    cadastrarDisciplinasNovas,
+    comoDisciplinasDaConferencia,
+    desfazerCadastro,
+    resolverDisciplinasNovas,
+    trocarIdsDasDisciplinas,
+} from '../services/disciplinasNovas.js';
+import {
     montarEstadoDaConfirmacao,
     montarOperacoes,
     montarPrevia,
@@ -31,9 +38,16 @@ const buscarDisciplinas = async (turma_id) => {
         { $unwind: '$materia' },
         { $lookup: { from: 'usuarios', localField: 'professor_id', foreignField: '_id', as: 'professor' } },
         { $unwind: '$professor' },
-        { $project: { materia: '$materia.nome', professor: '$professor.nome' } },
+        { $project: { materia: '$materia.nome', professor: '$professor.nome', materia_id: 1, professor_id: 1 } },
     ]);
-    return disciplinas.map(({ _id, materia, professor }) => ({ _id: String(_id), materia, professor }));
+    // Os ids deixam a revisão saber quem já dá cada matéria na turma.
+    return disciplinas.map(({ _id, materia, professor, materia_id, professor_id }) => ({
+        _id: String(_id),
+        materia,
+        professor,
+        materia_id: materia_id ? String(materia_id) : null,
+        professor_id: professor_id ? String(professor_id) : null,
+    }));
 };
 
 // A confirmação chega como multipart, com a planilha no campo "arquivo" e a conferência em JSON no campo "dados".
@@ -62,13 +76,35 @@ const buscarCadastro = async ({ aluno_id, turma_id, bimestre }) => {
     };
 };
 
+const conteudoComObjectId = (conteudo) => ({
+    ...conteudo,
+    turma_disciplina_id: new ObjectId(conteudo.turma_disciplina_id),
+    resultados: conteudo.resultados.map((resultado) => ({ ...resultado, aluno_id: new ObjectId(resultado.aluno_id) })),
+});
+
 // Os ids chegam como texto do JSON; no banco, os filtros precisam de ObjectId.
+// O simulado novo já recebe o _id aqui, para a resposta apontar para ele.
 const paraObjectId = (operacao) => {
+    if (operacao.insertOne) {
+        const { document } = operacao.insertOne;
+        return {
+            insertOne: {
+                document: {
+                    ...document,
+                    _id: new ObjectId(),
+                    turma_id: new ObjectId(document.turma_id),
+                    conteudos: document.conteudos.map(conteudoComObjectId),
+                },
+            },
+        };
+    }
+
     const { filter, update, arrayFilters } = operacao.updateOne;
     const empurrar = update.$push?.['conteudos.$[c].resultados'];
     const retirar = update.$pull?.['conteudos.$[c].resultados'];
     if (empurrar) empurrar.aluno_id = new ObjectId(empurrar.aluno_id);
     if (retirar) retirar.aluno_id = new ObjectId(retirar.aluno_id);
+    if (update.$push?.conteudos) update.$push.conteudos = conteudoComObjectId(update.$push.conteudos);
 
     return {
         updateOne: {
@@ -136,13 +172,19 @@ export default class ImportacaoController {
                 return res.status(422).json({ message: cadastro.erro });
 
             const { turma, disciplinas, simulados } = cadastro;
-            const { estado, bloqueios: bloqueiosDosIds } = montarEstadoDaConfirmacao({
-                payload: corpo,
-                disciplinas,
+
+            // Disciplinas escolhidas na revisão para colunas sem dono: conferidas agora e cadastradas só depois
+            // que a importação inteira passar nas validações. Até lá, valem com o id provisório.
+            const novas = await resolverDisciplinasNovas({ pedidas: corpo.disciplinasNovas, turma_id });
+            const corpoConferido = trocarIdsDasDisciplinas(corpo, novas.existentes);
+            const montarEstado = (payload, disciplinasDaTurma) => montarEstadoDaConfirmacao({
+                payload,
+                disciplinas: disciplinasDaTurma,
                 simulados,
                 aluno_id,
                 bimestre: Number(bimestre),
             });
+            const { estado, bloqueios: bloqueiosDosIds } = montarEstado(corpoConferido, [...disciplinas, ...comoDisciplinasDaConferencia(novas.aCriar)]);
 
             const alunosDaTurma = await Usuario.find({ _id: { $in: turma.alunos } });
             const { bloqueios, avisos } = validarConferencia(estado);
@@ -153,13 +195,11 @@ export default class ImportacaoController {
                 nomesDosAlunos: new Map(alunosDaTurma.map(({ _id, nome }) => [String(_id), nome])),
             });
 
-            const todos = [...bloqueiosDosIds, ...bloqueios, ...bloqueiosDaTurma];
+            const todos = [...novas.bloqueios, ...bloqueiosDosIds, ...bloqueios, ...bloqueiosDaTurma];
             if (todos.length > 0)
                 return res.status(422).json({ message: 'A importação tem problemas que precisam ser corrigidos.', bloqueios: todos, avisos });
 
-            const { operacoes, contagem } = montarOperacoes({ estado, aluno_id });
-
-            // A planilha sobe antes das notas: toda importação gravada fica com o arquivo que a originou.
+            // A planilha sobe antes de qualquer gravação: toda importação gravada fica com o arquivo que a originou.
             let guardada;
             try {
                 guardada = await armazenamentoPlanilhas.guardar({ buffer: req.file.buffer, turma_id, bimestre: Number(bimestre) });
@@ -168,11 +208,33 @@ export default class ImportacaoController {
                 return res.status(502).json({ message: 'Não foi possível guardar a planilha. Nenhuma nota foi gravada.' });
             }
 
+            let cadastroNovo = { mapa: new Map(), criados: { materias: [], disciplinas: [] } };
+            let contagem;
+            let primeiro;
             try {
-                if (operacoes.length > 0)
-                    await Simulado.bulkWrite(operacoes.map(paraObjectId));
+                cadastroNovo = await cadastrarDisciplinasNovas({ aCriar: novas.aCriar, turma_id });
 
-                const trocadas = (corpo.colunas ?? []).filter(({ trocada }) => trocada);
+                // Com as disciplinas cadastradas, os ids provisórios viram os reais antes de montar as operações.
+                const corpoFinal = trocarIdsDasDisciplinas(corpoConferido, cadastroNovo.mapa);
+                const { estado: estadoFinal } = montarEstado(corpoFinal, [...disciplinas, ...comoDisciplinasDaConferencia(novas.aCriar, cadastroNovo.mapa)]);
+                const montadas = montarOperacoes({ estado: estadoFinal, aluno_id, turma_id, simulados });
+                const operacoes = montadas.operacoes.map(paraObjectId);
+                contagem = {
+                    ...montadas.contagem,
+                    disciplinasCadastradas: cadastroNovo.criados.disciplinas.length,
+                    materiasCadastradas: cadastroNovo.criados.materias.length,
+                };
+
+                // As notas do aluno abrem no primeiro simulado do bimestre, que pode ser um dos criados agora.
+                primeiro = [
+                    ...simulados.map(({ _id, numero }) => ({ _id, numero })),
+                    ...operacoes.filter(({ insertOne }) => insertOne).map(({ insertOne: { document } }) => document),
+                ].sort((a, b) => a.numero - b.numero)[0];
+
+                if (operacoes.length > 0)
+                    await Simulado.bulkWrite(operacoes);
+
+                const trocadas = (corpoFinal.colunas ?? []).filter(({ trocada }) => trocada);
                 if (trocadas.length > 0) {
                     await MapeamentoColuna.bulkWrite(trocadas.map(({ cabecalho, turma_disciplina_id }) => ({
                         updateOne: {
@@ -183,7 +245,9 @@ export default class ImportacaoController {
                     })));
                 }
             } catch (error) {
-                // As notas não foram gravadas. Só apaga o arquivo criado agora: um que já existia é de outra importação.
+                // As notas não foram gravadas: a matéria e a disciplina cadastradas agora também saem.
+                await desfazerCadastro(cadastroNovo.criados);
+                // Só apaga o arquivo criado agora: um que já existia é de outra importação.
                 if (guardada?.novo) {
                     try {
                         await armazenamentoPlanilhas.apagar(guardada.nome);
@@ -213,8 +277,14 @@ export default class ImportacaoController {
                 console.error('Erro ao registrar a importação de notas:', error.message);
             }
 
-            return res.status(200).json({ message: 'Notas importadas com sucesso', ...contagem });
+            return res.status(200).json({ message: 'Notas importadas com sucesso', ...contagem, simulado_id: primeiro ? String(primeiro._id) : null });
         } catch (error) {
+            // Os simulados novos vão antes das notas: com o número já cadastrado, nenhuma nota foi gravada, e a
+            // matéria e a disciplina cadastradas antes já foram desfeitas.
+            if (error.code === 11000) {
+                const bloqueio = { codigo: 'SIMULADO_INVALIDO', mensagem: 'Um dos SIMs novos foi cadastrado enquanto a tela estava aberta. Importe de novo.', celulas: [], coluna: null };
+                return res.status(422).json({ message: 'A importação tem problemas que precisam ser corrigidos.', bloqueios: [bloqueio] });
+            }
             return res.status(500).json({ message: 'Erro ao importar as notas', error: error.message });
         }
     }

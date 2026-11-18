@@ -37,6 +37,11 @@ const ImportacaoNotasSchema = new Schema({
         atualizados: { type: Number, required: true },
         removidos: { type: Number, required: true },
         ignorados: { type: Number, required: true },
+        simuladosCriados: { type: Number, default: 0 },
+        disciplinasAdicionadas: { type: Number, default: 0 },
+        // Cadastradas na turma pela revisão, para colunas sem dono, e as matérias novas delas.
+        disciplinasCadastradas: { type: Number, default: 0 },
+        materiasCadastradas: { type: Number, default: 0 },
     },
 }, { timestamps: true, strict: true });
 
