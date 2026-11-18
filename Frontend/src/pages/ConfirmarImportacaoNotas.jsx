@@ -25,6 +25,12 @@ const CODIGOS_DA_TURMA = ["PESO_ALTERADO", "TIPO_ALTERADO", "QUESTOES_ALTERADAS"
 // A mesma matéria com o mesmo professor é a mesma disciplina, cadastrada ou escolhida na revisão.
 const chaveDaDisciplina = ({ materia, materia_id, professor_id }) => `${materia_id ?? `nome:${normalizar(materia)}`}|${professor_id}`;
 
+// Disciplina escolhida na revisão só existe enquanto alguma coluna a usa: trocada por outra, ela sai da lista.
+const semDisciplinasNovasSoltas = (estado) => ({
+    ...estado,
+    disciplinas: estado.disciplinas.filter(({ _id, nova }) => !nova || estado.colunas.some(({ turma_disciplina_id }) => turma_disciplina_id === _id)),
+});
+
 // Bloqueios ou avisos: o título é um botão que abre e fecha a lista.
 function PainelProblemas({ classe, titulo, problemas: todos, aberto, onAlternar, alerta = false }) {
     const idDaLista = useId();
@@ -88,7 +94,7 @@ export default function ConfirmarImportacaoNotas() {
     // Toda mudança recompleta o estado: trocar a disciplina de uma coluna muda o que falta no cadastro.
     const alterar = (mudanca) => {
         setBloqueiosDoServidor([]);
-        setEstado((atual) => completarSimulados(mudanca(atual)));
+        setEstado((atual) => completarSimulados(semDisciplinasNovasSoltas(mudanca(atual))));
     };
 
     const ligarColuna = (letra, disciplinaId) => alterar((atual) => ({

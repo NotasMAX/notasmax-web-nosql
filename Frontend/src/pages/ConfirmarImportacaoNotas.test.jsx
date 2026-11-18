@@ -278,6 +278,35 @@ describe('ConfirmarImportacaoNotas', () => {
     expect(await screen.findByText('1 disciplina(s) cadastrada(s) na turma, 2 disciplina(s) adicionada(s) a simulados.')).toBeInTheDocument();
   });
 
+  it('voltar para quem já dava a matéria tira da lista a disciplina nova escolhida antes, sem precisar recarregar', async () => {
+    confirmarImportacaoNotas.mockResolvedValue({ data: { message: 'ok', criados: 0, atualizados: 0, removidos: 0, ignorados: 2 } });
+    abrir();
+    await escolherLourdesParaIngles();
+    const grupos = () => {
+      const trocar = screen.getByRole('combobox', { name: 'Trocar professor da coluna INGLÊS' });
+      return {
+        trocar,
+        jaDao: within(trocar).getByRole('group', { name: 'Já dão Inglês nesta turma' }),
+        adicionar: within(trocar).getByRole('group', { name: 'Adicionar Inglês à turma com' }),
+      };
+    };
+
+    // A disciplina nova ainda não dá a matéria: Lourdes fica em "Adicionar", marcada como atual.
+    expect(grupos().jaDao).toHaveTextContent(/^Helena Vaz$/);
+    expect(grupos().adicionar).toHaveTextContent('Lourdes Prado (atual)');
+    fireEvent.change(grupos().trocar, { target: { value: 'p:p1' } });
+    expect(screen.getByText('Inglês - Lourdes Prado', { selector: 'span' })).toBeInTheDocument();
+
+    fireEvent.change(grupos().trocar, { target: { value: 'd:d2' } });
+
+    expect(screen.getByText('Inglês - Helena Vaz', { selector: 'span' })).toBeInTheDocument();
+    expect(grupos().jaDao).toHaveTextContent(/^Helena Vaz \(atual\)$/);
+    expect(grupos().adicionar).not.toHaveTextContent('(atual)');
+    fireEvent.click(confirmar());
+    await waitFor(() => expect(confirmarImportacaoNotas).toHaveBeenCalled());
+    expect(conferenciaEnviada().disciplinasNovas).toEqual([]);
+  });
+
   it('cancelar depois de escolher uma disciplina nova volta sem salvar nada', async () => {
     abrir();
     await escolherLourdesParaIngles();

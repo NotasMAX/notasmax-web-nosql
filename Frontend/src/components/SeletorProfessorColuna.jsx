@@ -13,19 +13,26 @@ export default function SeletorProfessorColuna({ coluna, disciplinas, materias, 
     const { cabecalhoOriginal, turma_disciplina_id: disciplinaId } = coluna;
     const materiaDoCabecalho = separarCabecalho(cabecalhoOriginal).materia;
 
-    const daMateria = disciplinas.filter((d) => normalizar(d.materia) === normalizar(materiaDoCabecalho));
+    const mesmaMateria = (disciplina) => normalizar(disciplina.materia) === normalizar(materiaDoCabecalho);
+    // Só as disciplinas que a turma já tem: uma escolhida nesta revisão ainda não dá a matéria.
+    const daMateria = disciplinas.filter((d) => !d.nova && mesmaMateria(d));
     const materia = materias.find((m) => normalizar(m.nome) === normalizar(materiaDoCabecalho));
     // Matéria nova aparece com o mesmo nome que o formulário vai sugerir ("ARTES" vira "Artes").
     const nomeDaMateria = materia?.nome ?? daMateria[0]?.materia ?? capitalizarNome(materiaDoCabecalho);
     const outros = professores.filter(({ _id }) => !daMateria.some((d) => d.professor_id === _id));
+    const atual = disciplinas.find((d) => d._id === disciplinaId);
+    // Disciplina escolhida nesta revisão para a coluna: o professor dela fica em "Adicionar", marcado como atual.
+    const atualNova = atual?.nova && mesmaMateria(atual) ? atual : null;
     // A ligação atual pode ser de outra matéria (escolha guardada ou feita antes): continua visível para não sumir.
-    const atualDeOutraMateria = disciplinas.find((d) => d._id === disciplinaId && !daMateria.includes(d));
+    const atualDeOutraMateria = atual && !mesmaMateria(atual) ? atual : null;
+    const valorAtual = atualNova ? `p:${atualNova.professor_id}` : `d:${disciplinaId}`;
 
     const escolher = (valor) => {
+        // Escolher de novo o professor atual não muda a ligação.
+        if (valor === valorAtual) return;
         const [tipo, id] = valor.split(":");
         if (tipo === "d") {
-            // Escolher de novo o professor atual não muda a ligação.
-            if (id !== disciplinaId) onEscolher(id);
+            onEscolher(id);
             return;
         }
 
@@ -39,13 +46,13 @@ export default function SeletorProfessorColuna({ coluna, disciplinas, materias, 
     };
 
     // Como botão, o seletor fica sempre no texto "Trocar professor", e a lista marca quem dá a matéria agora.
-    const rotulo = (texto, id) => (comoBotao && id === disciplinaId ? `${texto} (atual)` : texto);
+    const rotulo = (texto, valor) => (comoBotao && valor === valorAtual ? `${texto} (atual)` : texto);
 
     return (
         <select
             className={comoBotao ? Style.botaoSeletor : Style.seletorProfessor}
             aria-label={`${comoBotao ? "Trocar professor" : "Professor"} da coluna ${cabecalhoOriginal}`}
-            value={!comoBotao && disciplinaId ? `d:${disciplinaId}` : ""}
+            value={!comoBotao && disciplinaId ? valorAtual : ""}
             onChange={(e) => escolher(e.target.value)}
         >
             {comoBotao ? (
@@ -55,19 +62,19 @@ export default function SeletorProfessorColuna({ coluna, disciplinas, materias, 
             )}
             {daMateria.length > 0 && (
                 <optgroup label={`Já dão ${nomeDaMateria} nesta turma`}>
-                    {daMateria.map(({ _id, professor }) => <option key={_id} value={`d:${_id}`}>{rotulo(professor, _id)}</option>)}
+                    {daMateria.map(({ _id, professor }) => <option key={_id} value={`d:${_id}`}>{rotulo(professor, `d:${_id}`)}</option>)}
                 </optgroup>
             )}
             {atualDeOutraMateria && (
                 <optgroup label="Ligação atual">
                     <option value={`d:${atualDeOutraMateria._id}`}>
-                        {rotulo(`${atualDeOutraMateria.materia} - ${atualDeOutraMateria.professor}`, atualDeOutraMateria._id)}
+                        {rotulo(`${atualDeOutraMateria.materia} - ${atualDeOutraMateria.professor}`, `d:${atualDeOutraMateria._id}`)}
                     </option>
                 </optgroup>
             )}
             {outros.length > 0 && (
                 <optgroup label={materia ? `Adicionar ${nomeDaMateria} à turma com` : `Outros professores (cadastra a matéria ${nomeDaMateria})`}>
-                    {outros.map(({ _id, nome }) => <option key={_id} value={`p:${_id}`}>{nome}</option>)}
+                    {outros.map(({ _id, nome }) => <option key={_id} value={`p:${_id}`}>{rotulo(nome, `p:${_id}`)}</option>)}
                 </optgroup>
             )}
         </select>
