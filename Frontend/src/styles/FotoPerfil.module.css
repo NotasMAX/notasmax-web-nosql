@@ -1,0 +1,60 @@
+/* Avatar: foto redonda, ou o ícone do perfil quando não há foto */
+.avatar {
+  @apply inline-flex w-20 h-20 shrink-0 items-center justify-center overflow-hidden rounded-full border border-gray-300 bg-gray-50 text-[#043666];
+}
+
+.avatarImagem {
+  @apply w-full h-full object-cover;
+}
+
+.icone {
+  @apply w-8 h-8 shrink-0;
+}
+
+/* Campo de foto do formulário; o espaço de cima afasta a foto do título da página */
+.campo {
+  @apply mt-4 mb-6 mx-0 border-0 p-0;
+}
+
+/* Foto na tela de informações */
+.blocoFoto {
+  @apply mt-4 mb-6;
+}
+
+.legenda {
+  @apply block text-[0.875rem] font-medium font-inter text-[#404040] mb-2;
+}
+
+.linha {
+  @apply flex flex-wrap items-center gap-4;
+}
+
+.botoes {
+  @apply flex flex-wrap gap-2;
+}
+
+/* O input fica escondido, e o label faz o papel de botão */
+.entradaOculta {
+  @apply sr-only;
+}
+
+.botao {
+  @apply inline-flex items-center cursor-pointer bg-gray-200 hover:bg-gray-300 text-[#404040] font-medium text-[0.875rem] px-4 py-2 rounded-lg transition-colors;
+}
+
+.entradaOculta:focus-visible + .botao {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+.entradaOculta:disabled + .botao {
+  @apply opacity-60 cursor-not-allowed hover:bg-gray-200;
+}
+
+.ajuda {
+  @apply text-xs text-gray-500 mt-2 break-all;
+}
+
+.erro {
+  @apply text-red-600 text-xs mt-1 block;
+}

@@ -55,3 +55,7 @@
 .navLinkActive .navLinkText {
     @apply text-white;
 }
+
+.navAttention {
+    @apply ml-6;
+}

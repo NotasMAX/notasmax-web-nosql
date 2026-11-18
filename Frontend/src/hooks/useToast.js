@@ -1,5 +1,7 @@
 import { useRef, useEffect } from 'react';
 
+const TITULOS = { success: 'Sucesso', error: 'Erro', warn: 'Atenção', info: 'Informação' };
+
 export const useToast = () => {
     const toast = useRef(null);
 
@@ -13,7 +15,7 @@ export const useToast = () => {
             setTimeout(() => {
                 toast.current?.show({
                     severity: pendingSeverity,
-                    summary: pendingSeverity === 'success' ? 'Sucesso' : 'Erro',
+                    summary: TITULOS[pendingSeverity] ?? 'Erro',
                     detail: pendingMessage,
                     life: 3000
                 });
@@ -72,13 +74,19 @@ export const useToast = () => {
         sessionStorage.setItem('toastSeverity', 'error');
     };
 
-    return { 
-        toast, 
-        showSuccess, 
-        showError, 
-        showInfo, 
+    const showWarnOnRedirect = (message) => {
+        sessionStorage.setItem('toastMessage', message);
+        sessionStorage.setItem('toastSeverity', 'warn');
+    };
+
+    return {
+        toast,
+        showSuccess,
+        showError,
+        showInfo,
         showWarn,
         showSuccessOnRedirect,
-        showErrorOnRedirect
+        showErrorOnRedirect,
+        showWarnOnRedirect
     };
 };

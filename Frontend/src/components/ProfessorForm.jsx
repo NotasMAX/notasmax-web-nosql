@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import FotoPerfilCampo from "./FotoPerfilCampo";
 import Style from "../styles/ProfessorForm.module.css";
 
-export default function ProfessorForm({ initialData, onSubmit, isEditMode = true }) {
+export default function ProfessorForm({ initialData, onSubmit, isEditMode = true, fotoAtual = null, fotosDisponiveis = null }) {
     const [formData, setFormData] = useState(initialData || {
         nome: "",
         email: "",
@@ -11,6 +12,8 @@ export default function ProfessorForm({ initialData, onSubmit, isEditMode = true
     });
 
     const [errors, setErrors] = useState({});
+    const [foto, setFoto] = useState(null);
+    const [erroFoto, setErroFoto] = useState(null);
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -63,20 +66,34 @@ export default function ProfessorForm({ initialData, onSubmit, isEditMode = true
             return;
         }
 
+        // A data da foto vem dos dados carregados e não é editável aqui.
+        const { foto_atualizada_em, ...dados } = formData;
+
         // Remove espaços extras
         const cleanData = {
-            ...formData,
+            ...dados,
             nome: formData.nome.trim(),
             email: formData.email.trim(),
             telefone_contato: formData.telefone_contato.trim(),
             tipo_usuario: "professor"
         };
 
-        onSubmit(cleanData);
+        // A foto vai à parte, porque só é enviada depois que os dados foram salvos.
+        onSubmit(cleanData, foto);
     };
 
     return (
         <form onSubmit={handleSubmit} className={Style.form}>
+            <FotoPerfilCampo
+                tipoUsuario="professor"
+                fotoAtual={fotoAtual}
+                foto={foto}
+                erro={erroFoto}
+                disponivel={fotosDisponiveis}
+                somenteLeitura={!isEditMode}
+                onChange={(nova, problema) => { setFoto(nova); setErroFoto(problema); }}
+            />
+
             {/* Nome Completo */}
             <div className={Style.formGroup}>
                 <label className={Style.formLabel}>Nome Completo</label>

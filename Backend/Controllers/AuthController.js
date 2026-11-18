@@ -6,8 +6,7 @@ import {
   sendPasswordResetEmail,
   sendPasswordResetEmailMobile,
 } from "../services/emailService.js";
-
-const JWT_SECRET = process.env.JWT_SECRET || "chave-secreta-super-segura";
+import { getCookieOptions, getJwtSecret } from "../config.js";
 
 export const login = async (req, res) => {
   try {
@@ -29,17 +28,12 @@ export const login = async (req, res) => {
 
     const token = jwt.sign(
       { id: usuario._id, nome: usuario.nome, email: usuario.email, tipo_usuario: usuario.tipo_usuario },
-      JWT_SECRET,
+      getJwtSecret(),
       { expiresIn: "24h" }
     );
 
     // Definir cookie com o token
-    res.cookie("jwt", token, {
-      httpOnly: true,
-      secure: false, // Mude para true em produção com HTTPS
-      sameSite: "lax",
-      maxAge:  24 * 60 * 60 * 1000  // 24 hora em ms
-    });
+    res.cookie("jwt", token, getCookieOptions());
 
     return res.status(200).json({
       message: "Login realizado com sucesso.",
@@ -59,7 +53,8 @@ export const login = async (req, res) => {
 };
 
 export const logout = async (req, res) => {
-  res.clearCookie("jwt");
+  const { maxAge, ...cookieOptions } = getCookieOptions();
+  res.clearCookie("jwt", cookieOptions);
   return res.status(200).json({ message: "Logout com sucesso" });
 };
 

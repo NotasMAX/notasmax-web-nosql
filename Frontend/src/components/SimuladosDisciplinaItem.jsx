@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import Style from "../styles/SimuladosDisciplinaItem.module.css";
 import { confirmDialog } from 'primereact/confirmdialog';
 
-export default function SimuladosDisciplinaItem({ disciplina, toast, onClick, removeDisciplina, onUpdate }) {
+export default function SimuladosDisciplinaItem({ disciplina, pesoRestante = 100, pesoMaximo = pesoRestante, pesoRestanteCarregando = false, toast, onClick, removeDisciplina, onUpdate }) {
 
     const [Disciplina, setDisciplina] = useState({
         quantidade_questoes: disciplina.quantidade_questoes || 0,
@@ -52,7 +52,14 @@ export default function SimuladosDisciplinaItem({ disciplina, toast, onClick, re
                 <input value={Disciplina.quantidade_questoes} name='quantidade_questoes' type="number" min="0" max="100" className={Style.DisciplinasInput} onChange={handleChange} />
             </div>
             <div className={Style.ContainerDisciplinasCol} >
-                <input value={Disciplina.peso} name='peso' type="number" min="0" max="100" className={Style.DisciplinasInput} onChange={handleChange} /> %
+                <div className="flex flex-col items-center gap-1">
+                    <div>
+                        <input value={Disciplina.peso} name='peso' type="number" min="0" max={pesoMaximo} disabled={pesoRestanteCarregando} className={Style.DisciplinasInput} onChange={handleChange} /> %
+                    </div>
+                    <small className={pesoRestante === 0 ? "text-red-700" : "text-gray-600"}>
+                        {pesoRestanteCarregando ? "Consultando..." : `Restante: ${pesoRestante}%`}
+                    </small>
+                </div>
             </div>
             <div className={Style.ContainerDisciplinasColAcoes}>
                 <button className={Style.buttonDeleteDisciplina} onClick={(e) => { e.preventDefault(); e.stopPropagation(); confirm(disciplina); }}>
