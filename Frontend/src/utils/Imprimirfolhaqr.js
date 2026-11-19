@@ -25,23 +25,23 @@ export function imprimirFolhaQr({ svgMarkup, titulo, subtitulo, validade }) {
 <meta charset="utf-8">
 <title>${esc(titulo)}</title>
 <style>
-  @page { size: A4 portrait; margin: 15mm; }
-  * { box-sizing: border-box; }
-  body { font-family: Arial, Helvetica, sans-serif; text-align: center; margin: 0; color: #000; }
-  h1 { font-size: 26pt; margin: 0 0 4mm; }
-  h2 { font-size: 15pt; font-weight: normal; margin: 0 0 12mm; }
-  .qr { display: flex; justify-content: center; }
-  .qr svg { width: 12cm; height: 12cm; }
-  .passos { font-size: 15pt; margin: 12mm 10mm 0; line-height: 1.4; }
-  .validade { font-size: 11pt; margin-top: 8mm; color: #333; }
+    @page { size: A4 portrait; margin: 15mm; }
+    * { box-sizing: border-box; }
+    body { font-family: Arial, Helvetica, sans-serif; text-align: center; margin: 0; color: #000; }
+    h1 { font-size: 26pt; margin: 0 0 4mm; }
+    h2 { font-size: 15pt; font-weight: normal; margin: 0 0 12mm; }
+    .qr { display: flex; justify-content: center; }
+    .qr svg { width: 12cm; height: 12cm; }
+    .passos { font-size: 15pt; margin: 12mm 10mm 0; line-height: 1.4; }
+    .validade { font-size: 11pt; margin-top: 8mm; color: #333; }
 </style>
 </head>
 <body>
-  <h1>${esc(titulo)}</h1>
-  <h2>${esc(subtitulo)}</h2>
-  <div class="qr">${svgMarkup}</div>
-  <p class="passos">Abra o app NotasMax, entre com a sua conta de aluno e escaneie este QR Code para registrar a sua presença.</p>
-  <p class="validade">${esc(validade)}</p>
+    <h1>${esc(titulo)}</h1>
+    <h2>${esc(subtitulo)}</h2>
+    <div class="qr">${svgMarkup}</div>
+    <p class="passos">Abra o app NotasMax, entre com a sua conta de aluno e escaneie este QR Code para registrar a sua presença.</p>
+    <p class="validade">${esc(validade)}</p>
 </body>
 </html>`;
 
