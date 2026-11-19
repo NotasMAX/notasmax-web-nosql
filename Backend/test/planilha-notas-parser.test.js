@@ -193,6 +193,12 @@ for (const [descricao, valor] of [
   ['"FALTOU" com espaços', '  FALTOU '],
   ['"  Não  Fez "', '  Não  Fez '],
   ['rich text', { richText: [{ text: 'não ' }, { text: 'fez' }] }],
+  ['any other text', 'ausente'],
+  ['the word nulo', 'nulo'],
+  ['a dash', '-'],
+  ['a formula with an error', { formula: '1/0', result: { error: '#DIV/0!' } }],
+  ['an error value', { error: '#N/A' }],
+  ['a date', new Date(Date.UTC(2026, 2, 1))],
 ]) {
   test(`treats ${descricao} as absent`, async () => {
     const { linhas, bloqueios } = await lerPlanilhaNotas(await gerarArquivo((planilha) => { planilha.getCell('B4').value = valor; }));
@@ -215,14 +221,10 @@ for (const [descricao, valor, acertos] of [
 }
 
 for (const [descricao, valor, bruto] of [
-  ['text', 'ausente', 'ausente'],
-  ['the word nulo', 'nulo', 'nulo'],
   ['a negative number', -1, '-1'],
+  ['a negative number stored as text', '-2', '-2'],
   ['a decimal number', 2.5, '2,5'],
   ['a decimal stored as text', '2,5', '2,5'],
-  ['a formula with an error', { formula: '1/0', result: { error: '#DIV/0!' } }, '#DIV/0!'],
-  ['an error value', { error: '#N/A' }, '#N/A'],
-  ['a date', new Date(Date.UTC(2026, 2, 1)), null],
 ]) {
   test(`blocks when a cell of acertos holds ${descricao}`, async () => {
     const { linhas, bloqueios } = await lerPlanilhaNotas(await gerarArquivo((planilha) => { planilha.getCell('B4').value = valor; }));

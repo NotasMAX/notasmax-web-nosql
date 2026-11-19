@@ -9,6 +9,7 @@ import TurmaDisciplina from '../Models/TurmaDisciplina.js';
 import Usuario from '../Models/Usuario.js';
 import MapeamentoColuna from '../Models/MapeamentoColuna.js';
 import ImportacaoNotas from '../Models/ImportacaoNotas.js';
+import Materia from '../Models/Materia.js';
 import { armazenamentoPlanilhas } from '../services/armazenamentoPlanilhas.js';
 import { receberPlanilha } from '../middlewares/uploadPlanilha.js';
 import { response } from './helpers.js';
@@ -195,7 +196,10 @@ test('the confirmation creates the result and answers with the counts', async (t
   await ImportacaoController.confirmar(pedido(), res);
 
   assert.equal(res.statusCode, 200);
-  assert.deepEqual(res.body, { message: 'Notas importadas com sucesso', criados: 1, atualizados: 0, removidos: 0, ignorados: 0 });
+  assert.deepEqual(res.body, {
+    message: 'Notas importadas com sucesso', criados: 1, atualizados: 0, removidos: 0, ignorados: 0, simuladosCriados: 0, disciplinasAdicionadas: 0,
+    disciplinasCadastradas: 0, materiasCadastradas: 0, simulado_id: SIMULADO,
+  });
 
   const [operacao] = chamadas.simulados[0];
   const novo = operacao.updateOne.update.$push['conteudos.$[c].resultados'];
@@ -221,7 +225,7 @@ test('the confirmation stores the sheet and records the import', async (t) => {
     bimestre: 2,
     importado_por: ADMIN,
     planilha: { blob: BLOB, nome_original: 'Notas Física.xlsx', tamanho: 8, aba: 'Aluna Exemplo' },
-    contagem: { criados: 1, atualizados: 0, removidos: 0, ignorados: 0 },
+    contagem: { criados: 1, atualizados: 0, removidos: 0, ignorados: 0, simuladosCriados: 0, disciplinasAdicionadas: 0, disciplinasCadastradas: 0, materiasCadastradas: 0 },
   }]);
   assert.deepEqual(chamadas.apagadas, []);
 });
@@ -366,6 +370,259 @@ test('the confirmation refuses a weight that would push another student above 10
   assert.equal(res.body.bloqueios[0].codigo, 'NOTA_DE_OUTRO_ALUNO_ACIMA_DE_10');
   assert.match(res.body.bloqueios[0].mensagem, /Outro Aluno em Inglês - Helena Vaz daria 15,00/);
   assert.deepEqual(chamadas.simulados, []);
+});
+
+const OUTRA_DISCIPLINA = '507f1f77bcf86cd799439032';
+
+test('the confirmation creates a simulado that was not registered, before any other write', async (t) => {
+  const chamadas = simularCadastro(t);
+  const data = new Date(2026, 10, 18).toISOString();
+  const res = response();
+
+  await ImportacaoController.confirmar(pedido({
+    linhas: [
+      { numero: 1, celulas: [{ coluna: 'B', celula: 'B4', acertos: 2 }] },
+      { numero: 2, celulas: [{ coluna: 'B', celula: 'B5', acertos: 4 }] },
+    ],
+    novos: [{ numero: 2, tipo: 'dissertativo', data_realizacao: data, conteudos: [{ turma_disciplina_id: DISCIPLINA, quantidade_questoes: 5, peso: 20 }] }],
+  }), res);
+
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.body.simuladosCriados, 1);
+  assert.equal(res.body.criados, 2);
+  assert.equal(res.body.simulado_id, SIMULADO);
+
+  const [insercao, resultado] = chamadas.simulados[0];
+  const { document } = insercao.insertOne;
+  assert.ok(resultado.updateOne);
+  assert.equal(String(document.turma_id), TURMA);
+  assert.deepEqual([document.numero, document.tipo, document.bimestre, document.data_realizacao], [2, 'dissertativo', 2, data]);
+  assert.equal(String(document.conteudos[0].turma_disciplina_id), DISCIPLINA);
+  assert.deepEqual([document.conteudos[0].quantidade_questoes, document.conteudos[0].peso], [5, 20]);
+  assert.equal(String(document.conteudos[0].resultados[0].aluno_id), ALUNO);
+  assert.deepEqual([document.conteudos[0].resultados[0].acertos, document.conteudos[0].resultados[0].nota], [4, 8]);
+  assert.equal(chamadas.registros[0].contagem.simuladosCriados, 1);
+});
+
+test('the confirmation points to a created simulado when it is the first of the bimester', async (t) => {
+  const chamadas = simularCadastro(t);
+  t.mock.method(Simulado, 'find', async () => [{ ...simuladoDoBanco(), numero: 3 }]);
+  const res = response();
+
+  await ImportacaoController.confirmar(pedido({
+    linhas: [{ numero: 1, celulas: [{ coluna: 'B', celula: 'B4', acertos: 2 }] }],
+    novos: [{ numero: 1, tipo: 'objetivo', data_realizacao: new Date().toISOString(), conteudos: [{ turma_disciplina_id: DISCIPLINA, quantidade_questoes: 3, peso: 30 }] }],
+  }), res);
+
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.body.simulado_id, String(chamadas.simulados[0][0].insertOne.document._id));
+});
+
+test('the confirmation blocks a new simulado without questions and one whose number already exists', async (t) => {
+  const chamadas = simularCadastro(t);
+  const res = response();
+
+  await ImportacaoController.confirmar(pedido({
+    linhas: [
+      { numero: 1, celulas: [{ coluna: 'B', celula: 'B4', acertos: 2 }] },
+      { numero: 2, celulas: [{ coluna: 'B', celula: 'B5', acertos: 1 }] },
+    ],
+    novos: [{ numero: 1, tipo: 'objetivo', data_realizacao: new Date().toISOString(), conteudos: [] }],
+  }), res);
+
+  assert.equal(res.statusCode, 422);
+  assert.deepEqual(res.body.bloqueios.map(({ codigo }) => codigo), ['SIMULADO_INVALIDO', 'QUESTOES_INVALIDAS', 'PESO_INVALIDO']);
+  assert.match(res.body.bloqueios[0].mensagem, /SIM 1 foi cadastrado enquanto a tela estava aberta/);
+  assert.deepEqual(chamadas.simulados, []);
+});
+
+test('the confirmation adds a disciplina that the simulado did not have, with the result inside', async (t) => {
+  const chamadas = simularCadastro(t);
+  t.mock.method(TurmaDisciplina, 'aggregate', async () => [
+    { _id: DISCIPLINA, materia: 'Inglês', professor: 'Helena Vaz' },
+    { _id: OUTRA_DISCIPLINA, materia: 'Artes', professor: 'Toni Almeida' },
+  ]);
+  const res = response();
+
+  await ImportacaoController.confirmar(pedido({
+    colunas: [
+      { coluna: 'B', cabecalho: 'ingles', cabecalhoOriginal: 'INGLÊS', turma_disciplina_id: DISCIPLINA },
+      { coluna: 'C', cabecalho: 'artes', cabecalhoOriginal: 'ARTES', turma_disciplina_id: OUTRA_DISCIPLINA },
+    ],
+    linhas: [{ numero: 1, celulas: [{ coluna: 'B', celula: 'B4', acertos: 2 }, { coluna: 'C', celula: 'C4', acertos: 1 }] }],
+    conteudosNovos: [{ simulado_id: SIMULADO, turma_disciplina_id: OUTRA_DISCIPLINA, quantidade_questoes: 4, peso: 10 }],
+  }), res);
+
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.body.disciplinasAdicionadas, 1);
+  const adicao = chamadas.simulados[0].find(({ updateOne }) => updateOne?.update.$push?.conteudos);
+  const { conteudos } = adicao.updateOne.update.$push;
+  assert.equal(String(adicao.updateOne.filter._id), SIMULADO);
+  assert.equal(String(conteudos.turma_disciplina_id), OUTRA_DISCIPLINA);
+  assert.deepEqual([conteudos.quantidade_questoes, conteudos.peso, conteudos.resultados[0].acertos, conteudos.resultados[0].nota], [4, 10, 1, 2.5]);
+  assert.equal(String(conteudos.resultados[0].aluno_id), ALUNO);
+});
+
+test('the confirmation changes the questions and recalculates the grade of every student', async (t) => {
+  const chamadas = simularCadastro(t);
+  const res = response();
+
+  await ImportacaoController.confirmar(pedido({ questoes: [{ simulado_id: SIMULADO, turma_disciplina_id: DISCIPLINA, quantidade_questoes: 4 }] }), res);
+
+  assert.equal(res.statusCode, 200);
+  const [questoes, notaDoOutro, notaDoAluno] = chamadas.simulados[0];
+  assert.equal(questoes.updateOne.update.$set['conteudos.$[c].quantidade_questoes'], 4);
+  assert.equal(notaDoOutro.updateOne.update.$set['conteudos.$[c].resultados.$[r].nota'], 2.5);
+  assert.equal(String(notaDoOutro.updateOne.arrayFilters[1]['r.aluno_id']), OUTRO_ALUNO);
+  assert.equal(notaDoAluno.updateOne.update.$push['conteudos.$[c].resultados'].nota, 5);
+});
+
+test('the confirmation refuses fewer questions than the acertos of another student', async (t) => {
+  const chamadas = simularCadastro(t);
+  t.mock.method(Simulado, 'find', async () => [{
+    ...simuladoDoBanco(),
+    conteudos: [{ turma_disciplina_id: DISCIPLINA, peso: 30, quantidade_questoes: 3, resultados: [{ aluno_id: OUTRO_ALUNO, acertos: 3 }] }],
+  }]);
+  const res = response();
+
+  await ImportacaoController.confirmar(pedido({ questoes: [{ simulado_id: SIMULADO, turma_disciplina_id: DISCIPLINA, quantidade_questoes: 2 }], linhas: [] }), res);
+
+  assert.equal(res.statusCode, 422);
+  assert.equal(res.body.bloqueios[0].codigo, 'QUESTOES_ABAIXO_DOS_ACERTOS');
+  assert.equal(res.body.bloqueios[0].mensagem, 'Simulado 1, Inglês - Helena Vaz: Outro Aluno tem 3 acertos, mais do que as 2 questões.');
+  assert.deepEqual(chamadas.simulados, []);
+});
+
+test('the confirmation answers 422 when another import created the same simulado meanwhile', async (t) => {
+  const chamadas = simularCadastro(t);
+  t.mock.method(Simulado, 'bulkWrite', async () => { throw Object.assign(new Error('E11000 duplicate key'), { code: 11000 }); });
+  const res = response();
+
+  await ImportacaoController.confirmar(pedido(), res);
+
+  assert.equal(res.statusCode, 422);
+  assert.equal(res.body.bloqueios[0].codigo, 'SIMULADO_INVALIDO');
+  assert.deepEqual(chamadas.apagadas, [BLOB]);
+});
+
+const PROFESSORA = '507f1f77bcf86cd799439051';
+const MATERIA_NOVA = '507f1f77bcf86cd799439061';
+const DISCIPLINA_NOVA = '507f1f77bcf86cd799439071';
+
+// A coluna C ("ARTES") não tinha dono: na revisão, o admin escolheu Rita Lima, e a matéria Artes ainda não existe.
+const comDisciplinaNova = (mudancas = {}) => ({
+  colunas: [
+    { coluna: 'B', cabecalho: 'ingles', cabecalhoOriginal: 'INGLÊS', turma_disciplina_id: DISCIPLINA },
+    { coluna: 'C', cabecalho: 'artes', cabecalhoOriginal: 'ARTES', turma_disciplina_id: 'nova-1', trocada: true },
+  ],
+  linhas: [{ numero: 1, celulas: [{ coluna: 'B', celula: 'B4', acertos: 2 }, { coluna: 'C', celula: 'C4', acertos: 3 }] }],
+  conteudosNovos: [{ simulado_id: SIMULADO, turma_disciplina_id: 'nova-1', quantidade_questoes: 4, peso: 10 }],
+  disciplinasNovas: [{ id: 'nova-1', materia_id: null, materia_nome: 'Artes', professor_id: PROFESSORA }],
+  ...mudancas,
+});
+
+function simularDisciplinaNova(t, { materias = [], daTurma = [], comProfessora = true } = {}) {
+  const ordem = [];
+  t.mock.method(armazenamentoPlanilhas, 'guardar', async () => { ordem.push('planilha'); return { nome: BLOB, novo: true }; });
+  t.mock.method(Materia, 'find', async () => materias);
+  t.mock.method(TurmaDisciplina, 'find', async () => daTurma);
+  t.mock.method(Usuario, 'find', async () => [
+    { _id: ALUNO, nome: 'Aluna Exemplo' },
+    { _id: OUTRO_ALUNO, nome: 'Outro Aluno' },
+    ...(comProfessora ? [{ _id: PROFESSORA, nome: 'Rita Lima', tipo_usuario: 'professor' }] : []),
+  ]);
+  const materiaCriada = t.mock.method(Materia, 'create', async ({ nome }) => { ordem.push('materia'); return { _id: MATERIA_NOVA, nome }; });
+  const disciplinaCriada = t.mock.method(TurmaDisciplina, 'create', async (dados) => { ordem.push('disciplina'); return { _id: DISCIPLINA_NOVA, ...dados }; });
+  return { ordem, materiaCriada, disciplinaCriada };
+}
+
+test('the confirmation creates the subject and the disciplina chosen in the review only after the checks, with the real id', async (t) => {
+  const chamadas = simularCadastro(t);
+  const { ordem, materiaCriada, disciplinaCriada } = simularDisciplinaNova(t);
+  const res = response();
+
+  await ImportacaoController.confirmar(pedido(comDisciplinaNova()), res);
+
+  assert.equal(res.statusCode, 200);
+  assert.deepEqual(ordem, ['planilha', 'materia', 'disciplina']);
+  assert.deepEqual(materiaCriada.mock.calls[0].arguments[0], { nome: 'Artes' });
+  assert.deepEqual(disciplinaCriada.mock.calls[0].arguments[0], { turma_id: TURMA, materia_id: MATERIA_NOVA, professor_id: PROFESSORA });
+  assert.deepEqual([res.body.disciplinasCadastradas, res.body.materiasCadastradas], [1, 1]);
+
+  const adicao = chamadas.simulados[0].find(({ updateOne }) => updateOne?.update.$push?.conteudos);
+  assert.equal(String(adicao.updateOne.update.$push.conteudos.turma_disciplina_id), DISCIPLINA_NOVA);
+  assert.equal(adicao.updateOne.update.$push.conteudos.resultados[0].acertos, 3);
+  const [mapeamento] = chamadas.mapeamentos[0];
+  assert.equal(String(mapeamento.updateOne.update.$set.turma_disciplina_id), DISCIPLINA_NOVA);
+  assert.deepEqual(chamadas.registros[0].contagem, {
+    criados: 2, atualizados: 0, removidos: 0, ignorados: 0, simuladosCriados: 0, disciplinasAdicionadas: 1,
+    disciplinasCadastradas: 1, materiasCadastradas: 1,
+  });
+});
+
+test('the confirmation creates nothing when the import has a block', async (t) => {
+  const chamadas = simularCadastro(t);
+  const { materiaCriada, disciplinaCriada } = simularDisciplinaNova(t);
+  const res = response();
+
+  await ImportacaoController.confirmar(pedido(comDisciplinaNova({ conteudosNovos: [] })), res);
+
+  assert.equal(res.statusCode, 422);
+  assert.deepEqual(res.body.bloqueios.map(({ codigo }) => codigo), ['QUESTOES_INVALIDAS', 'PESO_INVALIDO']);
+  assert.ok(res.body.avisos.some(({ codigo }) => codigo === 'DISCIPLINA_NOVA'));
+  assert.deepEqual([materiaCriada.mock.callCount(), disciplinaCriada.mock.callCount()], [0, 0]);
+  assert.deepEqual([chamadas.simulados, chamadas.mapeamentos], [[], []]);
+});
+
+test('the confirmation undoes the subject and the disciplina when the grades cannot be written', async (t) => {
+  const chamadas = simularCadastro(t);
+  simularDisciplinaNova(t);
+  t.mock.method(Simulado, 'bulkWrite', async () => { throw new Error('escrita falhou'); });
+  const disciplinasApagadas = t.mock.method(TurmaDisciplina, 'deleteMany', async () => ({}));
+  const materiasApagadas = t.mock.method(Materia, 'deleteMany', async () => ({}));
+  const res = response();
+
+  await ImportacaoController.confirmar(pedido(comDisciplinaNova()), res);
+
+  assert.equal(res.statusCode, 500);
+  assert.deepEqual(disciplinasApagadas.mock.calls[0].arguments[0], { _id: { $in: [DISCIPLINA_NOVA] } });
+  assert.deepEqual(materiasApagadas.mock.calls[0].arguments[0], { _id: { $in: [MATERIA_NOVA] } });
+  assert.deepEqual(chamadas.apagadas, [BLOB]);
+  assert.deepEqual(chamadas.registros, []);
+});
+
+test('a disciplina chosen in the review that the class already has keeps the real one and creates nothing', async (t) => {
+  const chamadas = simularCadastro(t);
+  t.mock.method(TurmaDisciplina, 'aggregate', async () => [
+    { _id: DISCIPLINA, materia: 'Inglês', professor: 'Helena Vaz' },
+    { _id: DISCIPLINA_NOVA, materia: 'Artes', professor: 'Rita Lima' },
+  ]);
+  const { materiaCriada, disciplinaCriada } = simularDisciplinaNova(t, {
+    materias: [{ _id: MATERIA_NOVA, nome: 'Artes' }],
+    daTurma: [{ _id: DISCIPLINA_NOVA, materia_id: MATERIA_NOVA, professor_id: PROFESSORA }],
+  });
+  const res = response();
+
+  await ImportacaoController.confirmar(pedido(comDisciplinaNova()), res);
+
+  assert.equal(res.statusCode, 200);
+  assert.deepEqual([materiaCriada.mock.callCount(), disciplinaCriada.mock.callCount()], [0, 0]);
+  assert.deepEqual([res.body.disciplinasCadastradas, res.body.materiasCadastradas], [0, 0]);
+  const adicao = chamadas.simulados[0].find(({ updateOne }) => updateOne?.update.$push?.conteudos);
+  assert.equal(String(adicao.updateOne.update.$push.conteudos.turma_disciplina_id), DISCIPLINA_NOVA);
+});
+
+test('the confirmation blocks a disciplina whose professor no longer exists', async (t) => {
+  simularCadastro(t);
+  const { disciplinaCriada } = simularDisciplinaNova(t, { comProfessora: false });
+  const res = response();
+
+  await ImportacaoController.confirmar(pedido(comDisciplinaNova()), res);
+
+  assert.equal(res.statusCode, 422);
+  assert.equal(res.body.bloqueios[0].codigo, 'DISCIPLINA_NOVA_INVALIDA');
+  assert.equal(res.body.bloqueios[0].mensagem, 'O professor escolhido para Artes não existe mais no sistema. Importe de novo.');
+  assert.equal(disciplinaCriada.mock.callCount(), 0);
 });
 
 test('the confirmation reports an unexpected failure before writing', async (t) => {
