@@ -47,7 +47,7 @@ Conferidas pelo navegador, com a seed.
 - Célula C4: "-1" não é válido. Use um número inteiro de 0 para cima; qualquer texto vale como nulo.
 - Célula D4: "1,5" não é válido. Use um número inteiro de 0 para cima; qualquer texto vale como nulo.
 - Célula B5: 9 acertos é mais do que as 3 questões de Física - Lourdes Prado no simulado 2.
-- SIM 7 não tem simulado cadastrado: aparece como "novo simulado", com o aviso "SIM 7: não está cadastrado e será criado ao confirmar...", e cada disciplina bloqueia com "Simulado 7, \<disciplina\>: o número de questões deve ser um inteiro de 1 a 100." até as questões serem preenchidas no lápis da linha. Esta mensagem é de 18/11/2026 e ainda não foi conferida no navegador.
+- SIM 7 não tem simulado cadastrado: aparece como "novo simulado", com o aviso "SIM 7: não está cadastrado e será criado ao confirmar...", e cada disciplina bloqueia com "Simulado 7, \<disciplina\>: o número de questões deve ser um inteiro de 1 a 100." até as questões serem preenchidas no lápis da linha.
 
 ### `07-bloqueios-colunas`
 

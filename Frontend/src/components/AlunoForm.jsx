@@ -68,8 +68,8 @@ export default function AlunoForm({ initialData, onSubmit, isEditMode = true, fo
             return;
         }
 
-        // A data da foto vem dos dados carregados e não é editável aqui.
-        const { foto_atualizada_em, ...dados } = formData;
+        // A data da foto vem dos dados carregados e não é editável aqui: fica fora do envio.
+        const { foto_atualizada_em: _fotoAtualizadaEm, ...dados } = formData;
 
         // Remove espaços extras
         const cleanData = {
