@@ -357,8 +357,11 @@ export const montarPrevia = ({ leitura, bimestreTela, aluno, turma, disciplinas,
         simulados: montarSimulados(simulados, aluno._id, agora),
         linhas: leitura.linhas,
     };
+    const podeConferir = leitura.bimestre === bimestreTela && colunas.length > 0 && leitura.linhas.length > 0;
+    // Sem revisão possível, a tela de envio mostra só o que a impede de abrir: os problemas da conferência
+    // (questões de simulado novo, disciplina sem dono...) só fazem sentido na revisão, que os recalcula.
     // A resposta leva só o cadastro: a tela completa os simulados novos com a data de hoje do navegador.
-    const { bloqueios, avisos } = validarConferencia(completarSimulados(estado, agora));
+    const { bloqueios, avisos } = podeConferir ? validarConferencia(completarSimulados(estado, agora)) : { bloqueios: [], avisos: [] };
 
     return {
         ...estado,
@@ -366,7 +369,7 @@ export const montarPrevia = ({ leitura, bimestreTela, aluno, turma, disciplinas,
         abas: leitura.abas,
         aluno,
         turma,
-        podeConferir: leitura.bimestre === bimestreTela && colunas.length > 0 && leitura.linhas.length > 0,
+        podeConferir,
         problemasDaPlanilha: { bloqueios: bloqueiosDaPlanilha, avisos: avisosDaPlanilha },
         bloqueios: [...bloqueiosDaPlanilha, ...bloqueios],
         avisos: [...avisosDaPlanilha, ...avisos],

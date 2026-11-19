@@ -436,6 +436,19 @@ const previa = (mudancas = {}) => montarPrevia({
   agora: AGORA,
 });
 
+test('a sheet that cannot be reviewed shows only what stops the review, not the review problems', () => {
+  // Planilha do 3º bimestre na tela do 2º, com SIMs que não existem: na revisão, eles virariam simulados novos sem questões.
+  const resultado = previa({
+    bimestre: 3,
+    linhas: [5, 6, 7].map((numero) => ({ numero, linhaPlanilha: numero + 3, total: 2, celulas: [{ coluna: 'B', celula: `B${numero + 3}`, status: 'acertos', acertos: 1 }] })),
+  });
+
+  assert.equal(resultado.podeConferir, false);
+  assert.deepEqual(codigos(resultado.bloqueios), ['BIMESTRE_DIFERENTE']);
+  assert.deepEqual(codigos(resultado.avisos), []);
+  assert.equal(resultado.bloqueios[0].mensagem, 'A planilha é do 3º bimestre, mas a tela está no 2º bimestre.');
+});
+
 test('builds the preview, linking the columns and allowing the review', () => {
   const resultado = previa();
 
