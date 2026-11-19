@@ -3,8 +3,9 @@ import TurmasController from "../Controllers/TurmasController.js";
 import TurmaDisciplinasController from "../Controllers/TurmaDisciplinasController.js";
 import UsuariosController from "../Controllers/UsuariosController.js";
 import MateriasController from "../Controllers/MateriasController.js";
-import { authenticateToken, authorizeAdmin, authorizeProfessor } from "../middlewares/authMiddleware.js";
+import { authenticateToken, authorizeAdmin, authorizeProfessor, authorizeAluno } from "../middlewares/authMiddleware.js";
 import SimuladosController from '../Controllers/SimuladosController.js';
+import PresencasController from "../Controllers/PresencasController.js";
 import ImportacaoController from '../Controllers/ImportacaoController.js';
 import FotosPerfilController from '../Controllers/FotosPerfilController.js';
 import { receberPlanilha } from '../middlewares/uploadPlanilha.js';
@@ -75,6 +76,16 @@ routes.get('/Desempenho/aluno=:aluno/simulado=:simulado', SimuladosController.ge
 routes.get('/Professor/:professor/data/anoAtual', SimuladosController.getProfessorDataCurrentYear);
 routes.get('/Calendario/aluno=:aluno', SimuladosController.getCalendarioByAluno);
 
+
+// Metodo para presença
+routes.post("/Presenca/Qr/Gerar", authenticateToken, authorizeAdmin, PresencasController.gerarQr);
+routes.get("/Presenca/Qr/Simulado/:simulado_id", authenticateToken, authorizeAdmin, PresencasController.obterQrAtivo);
+routes.patch("/Presenca/Qr/:qr_id/Revogar", authenticateToken, authorizeAdmin, PresencasController.revogarQr);
+routes.get("/Presenca/Simulado/:simulado_id", authenticateToken, authorizeAdmin, PresencasController.listarPorSimulado);
+routes.post("/Presenca/Registrar", authenticateToken, authorizeAluno, PresencasController.registrar);
+
+// Metodo para importacao excel
 routes.post('/Importacoes/Notas/Previa', authenticateToken, authorizeAdmin, receberPlanilha, ImportacaoController.previa);
 routes.post('/Importacoes/Notas/Confirmar', authenticateToken, authorizeAdmin, receberPlanilha, ImportacaoController.confirmar);
+
 export default routes;

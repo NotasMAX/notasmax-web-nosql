@@ -13,6 +13,7 @@ function getBearerToken(req) {
 }
 
 export const authenticateToken = (req, res, next) => {
+
     const bearerToken = getBearerToken(req);
     const cookieToken = req.cookies?.jwt;
     const token = bearerToken ?? cookieToken;
@@ -55,4 +56,5 @@ export const authorizeRoles = (...roles) => (req, res, next) => {
 
 // Metodos para validação do tipo de usuario definido
 export const authorizeAdmin = authorizeRoles('administrador');
-export const authorizeProfessor = authorizeRoles('administrador, professor');
+export const authorizeProfessor = authorizeRoles('professor');
+export const authorizeAluno = authorizeRoles('aluno');
