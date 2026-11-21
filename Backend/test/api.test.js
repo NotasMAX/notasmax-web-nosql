@@ -364,13 +364,15 @@ test('user registration, listings, details, updates, and performance use fake pe
   };
 
   t.mock.method(Usuario, 'findOne', async () => null);
-  t.mock.method(Usuario, 'create', async (record) => ({ ...record, _id: validId }));
+  const createUsuario = t.mock.method(Usuario, 'create', async (record) => ({ ...record, _id: validId }));
   const professor = response();
   await UsuariosController.cadastrarProfessor({ body: { nome: 'Synthetic Teacher', email: 'teacher@example.test', telefone_contato: '0000000002' } }, professor);
   assert.equal(professor.statusCode, 201);
+  assert.equal(createUsuario.mock.calls[0].arguments[0].usa_senha_inicial, true);
   const student = response();
   await UsuariosController.cadastrarAluno({ body: { nome: user.nome, email: user.email, telefone_contato: user.telefone_contato, nome_responsavel: user.nome_responsavel, telefone_responsavel: user.telefone_responsavel } }, student);
   assert.equal(student.statusCode, 201);
+  assert.equal(createUsuario.mock.calls[1].arguments[0].usa_senha_inicial, true);
 
   t.mock.method(Usuario, 'find', () => ({ sort: async () => [user], where() { return this; } }));
   const teachers = response();
@@ -388,7 +390,7 @@ test('user registration, listings, details, updates, and performance use fake pe
     then(resolve, reject) { return Promise.resolve(user).then(resolve, reject); },
   };
   t.mock.method(Usuario, 'findById', () => query);
-  t.mock.method(Usuario, 'findByIdAndUpdate', async () => user);
+  const findByIdAndUpdate = t.mock.method(Usuario, 'findByIdAndUpdate', async () => user);
   const details = response();
   await UsuariosController.getUsuario({ params: { id: validId } }, details);
   assert.equal(details.statusCode, 200);
@@ -396,8 +398,13 @@ test('user registration, listings, details, updates, and performance use fake pe
   await UsuariosController.getOne({ params: { id: validId } }, one);
   assert.equal(one.statusCode, 200);
   const updated = response();
-  await UsuariosController.atualizarUsuario({ params: { id: validId }, body: { nome: 'Synthetic Updated', senha: 'synthetic-password' } }, updated);
+  await UsuariosController.atualizarUsuario({ params: { id: validId }, body: { nome: 'Synthetic Updated', senha: 'synthetic-password', usa_senha_inicial: true } }, updated);
   assert.equal(updated.statusCode, 200);
+  assert.equal(findByIdAndUpdate.mock.calls[0].arguments[1].usa_senha_inicial, false);
+  assert.notEqual(findByIdAndUpdate.mock.calls[0].arguments[1].senha, 'synthetic-password');
+
+  await UsuariosController.atualizarUsuario({ params: { id: validId }, body: { usa_senha_inicial: true } }, response());
+  assert.equal(Object.hasOwn(findByIdAndUpdate.mock.calls[1].arguments[1], 'usa_senha_inicial'), false);
 
   t.mock.method(Turma, 'find', async () => []);
   t.mock.method(Simulado, 'aggregate', async () => []);

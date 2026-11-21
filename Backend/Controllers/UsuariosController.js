@@ -24,6 +24,7 @@ export default class UsuariosController {
                 email,
                 telefone_contato,
                 senha: senhaHash,
+                usa_senha_inicial: true,
                 tipo_usuario: "professor"
             });
 
@@ -56,6 +57,7 @@ export default class UsuariosController {
                 email,
                 telefone_contato,
                 senha: senhaHash,
+                usa_senha_inicial: true,
                 nome_responsavel,
                 telefone_responsavel,
                 tipo_usuario: "aluno"
@@ -139,10 +141,14 @@ export default class UsuariosController {
             }
 
             // A foto só muda pela rota de foto, que confere o arquivo e guarda no Blob Storage.
-            const { foto, foto_atualizada_em, ...updates } = req.body ?? {};
+            const updates = { ...(req.body ?? {}) };
+            delete updates.foto;
+            delete updates.foto_atualizada_em;
+            delete updates.usa_senha_inicial;
 
             if (updates.senha) {
                 updates.senha = await bcrypt.hash(updates.senha, 12);
+                updates.usa_senha_inicial = false;
             }
 
             const usuarioAtualizado = await Usuario.findByIdAndUpdate(

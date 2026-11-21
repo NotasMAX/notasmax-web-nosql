@@ -26,6 +26,31 @@ export const login = async (req, res) => {
       return res.status(401).json({ message: "Usuario não encontrado, verifique se E-mail ou Senha estão incorretos." });
     }
 
+    const perfilComSenhaInicial = ["aluno", "professor"].includes(usuario.tipo_usuario);
+    let usaSenhaInicial = perfilComSenhaInicial && usuario.usa_senha_inicial === true;
+
+    if (
+      perfilComSenhaInicial &&
+      (usuario.usa_senha_inicial === undefined || usuario.usa_senha_inicial === null)
+    ) {
+      usaSenhaInicial = true;
+      try {
+        await Usuario.updateOne(
+          {
+            _id: usuario._id,
+            tipo_usuario: usuario.tipo_usuario,
+            $or: [
+              { usa_senha_inicial: { $exists: false } },
+              { usa_senha_inicial: null },
+            ],
+          },
+          { $set: { usa_senha_inicial: true } }
+        );
+      } catch {
+        // O estado é informativo; falha no preenchimento legado não deve impedir o login.
+      }
+    }
+
     const token = jwt.sign(
       { id: usuario._id, nome: usuario.nome, email: usuario.email, tipo_usuario: usuario.tipo_usuario },
       getJwtSecret(),
@@ -44,7 +69,8 @@ export const login = async (req, res) => {
         email: usuario.email,
         tipo_usuario: usuario.tipo_usuario,
         nome_responsavel: usuario.nome_responsavel,
-        telefone_responsavel: usuario.telefone_responsavel
+        telefone_responsavel: usuario.telefone_responsavel,
+        usa_senha_inicial: usaSenhaInicial,
       },
     });
   } catch (error) {
@@ -135,6 +161,7 @@ export const resetPassword = async (req, res) => {
       { _id: usuarioComToken._id },
       {
         senha: hashedNewPassword,
+        usa_senha_inicial: false,
         resetToken: null,
         resetTokenExpiry: null,
       }

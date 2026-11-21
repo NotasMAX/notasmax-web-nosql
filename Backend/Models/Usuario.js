@@ -7,6 +7,7 @@ const usuarioSchema = new Schema({
   email: { type: String, required: true, unique: true, lowercase: true, trim: true },
   telefone_contato: { type: String, required: true, trim: true },
   senha: { type: String, required: true, select: false },
+  usa_senha_inicial: { type: Boolean },
   tipo_usuario: {
     type: String,
     enum: ["aluno", "professor", "administrador"],
